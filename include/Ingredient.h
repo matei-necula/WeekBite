@@ -19,6 +19,9 @@ public:
     Ingredient(double price, const std::string &name, const std::string& unitText, double amount);
     double recipePrice() const;
     friend std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient);
+    void scale(int factor);
+    const std::string& getName() const;
 };
+
 
 #endif //OOP_INGREDIENT_H

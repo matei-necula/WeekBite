@@ -72,6 +72,8 @@ target_sources(${MAIN_LIBRARY_NAME}
         src/Example.cpp
         src/internal/Detail.cpp
         src/Ingredient.cpp
+        src/Recipe.cpp
+        src/Nutrition.cpp
 )
 
 # NOTE: Add all defined targets (e.g. executables, libraries, etc. )

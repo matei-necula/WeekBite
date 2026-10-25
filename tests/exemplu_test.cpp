@@ -9,10 +9,13 @@
 #include <cmath>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <stdexcept>
 
 #include "Example.h"      // the library under test; include/ comes from oop
 #include "Ingredient.h"
+#include "Nutrition.h"
+#include "Recipe.h"
 
 static_assert(Example::limit > 0, "the invariant below assumes a positive limit");
 
@@ -85,6 +88,111 @@ namespace {
                             "chickpeas (240 - g) (4.99 lei)\n"
                             "0.125");
     }
+
+    void testIngredientScaling() {
+        Ingredient oats{1.50, "oats", "g", 80};
+        oats.scale(3);
+        assert(nearlyEqual(oats.recipePrice(), 3.60));
+        assert(printed(oats) == "oats (240 - g) (3.60 lei)");
+
+        Ingredient eggs{1.20, "eggs", "pieces", 2};
+        eggs.scale(1);
+        assert(printed(eggs) == "eggs (2 - pieces) (2.40 lei)" && "factor 1 changes nothing");
+
+        // a refused factor must leave the ingredient untouched
+        const int badFactors[] = {0, -2};
+        for (const int bad : badFactors) {
+            Ingredient milk{0.80, "milk", "ml", 200};
+            bool threw = false;
+            try {
+                milk.scale(bad);
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "a factor <= 0 must throw");
+            assert(printed(milk) == "milk (200 - ml) (1.60 lei)" && "a failed call leaves the object untouched");
+        }
+    }
+
+    // oatmeal_banana, as in assets/recipes.csv and assets/recipe_ingredients.csv
+    Recipe oatmealBanana() {
+        const std::vector<Ingredient> ingredients{
+            Ingredient{1.50, "oats", "g", 80},
+            Ingredient{0.80, "milk", "ml", 200},
+            Ingredient{1.17, "banana", "pieces", 1},
+            Ingredient{0, "cinnamon", "tsp", 0.5},
+        };
+        return Recipe{"oatmeal_banana", "breakfast", ingredients, Nutrition{549, 21.5, 90.5, 13.1, 24.9}, 1};
+    }
+
+    void testRecipePrice() {
+        // 1.20 (oats) + 1.60 (milk) + 1.17 (banana) + 0 (cinnamon, tsp)
+        assert(nearlyEqual(oatmealBanana().recipePrice(), 3.97));
+
+        const Recipe empty{"water", "lunch", {}, Nutrition{0, 0, 0, 0, 0}, 1};
+        assert(nearlyEqual(empty.recipePrice(), 0) && "no ingredients, no cost");
+
+        const char* badCategories[] = {"Breakfast", "snack", ""};
+        for (const char* bad : badCategories) {
+            bool threw = false;
+            try {
+                const Recipe broken{"x", bad, {}, Nutrition{0, 0, 0, 0, 0}, 1};
+                (void) broken;
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "an unknown category must throw");
+        }
+    }
+
+    std::string printed(const Recipe& recipe) {
+        std::ostringstream out;
+        out << recipe;
+        return out.str();
+    }
+
+    void testRecipeOutput() {
+        assert(printed(oatmealBanana()) ==
+               "oatmeal_banana (breakfast, 1 servings)\n"
+               "oats (80 - g) (1.20 lei)\n"
+               "milk (200 - ml) (1.60 lei)\n"
+               "banana (1 - pieces) (1.17 lei)\n"
+               "cinnamon (0.5 - tsp)\n"
+               "Total price: 3.97 lei\n"
+               "Calories: 549kcal, Protein: 21.5g, Carbohydrates: 90.5g, Fats: 13.1g, Sugar: 24.9g\n"
+               "(price may vary because of cinnamon)\n");
+
+        // two unpriced ingredients: one note, names separated by ", "
+        const std::vector<Ingredient> spiced{
+            Ingredient{3.40, "chicken_breast", "g", 200},
+            Ingredient{0, "salt", "tsp", 0.5},
+            Ingredient{0, "paprika", "tsp", 1},
+        };
+        const std::string twoNotes = printed(Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1});
+        assert(twoNotes.find("(price may vary because of salt, paprika)\n") != std::string::npos);
+
+        // every ingredient priced: no note at all, nutrition is the last line
+        const std::vector<Ingredient> plain{Ingredient{3.40, "chicken_breast", "g", 200}};
+        const std::string noNote = printed(Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1});
+        assert(noNote.find("price may vary") == std::string::npos);
+        assert(noNote.substr(noNote.size() - 1) == "\n" && "the last line ends with a newline");
+
+        // the 2-decimal total must not leak into what is printed next
+        std::ostringstream out;
+        out << oatmealBanana() << 240.0;
+        assert(out.str().substr(out.str().size() - 4) == "\n240");
+    }
+
+    void testNutritionOutput() {
+        std::ostringstream out;
+        out << Nutrition{549, 21.5, 90.5, 13.1, 24.9};
+        assert(out.str() == "Calories: 549kcal, Protein: 21.5g, Carbohydrates: 90.5g, Fats: 13.1g, Sugar: 24.9g");
+
+        // values from recipes.csv with a trailing .0 print without it
+        out.str("");
+        out << Nutrition{372, 15.6, 55.2, 11.0, 29.1};
+        assert(out.str() == "Calories: 372kcal, Protein: 15.6g, Carbohydrates: 55.2g, Fats: 11g, Sugar: 29.1g");
+    }
 }
 
 // checked through the public interface only: the helper behind the invariant is
@@ -126,6 +234,10 @@ int main() {
 
     testIngredient();
     testIngredientOutput();
+    testIngredientScaling();
+    testNutritionOutput();
+    testRecipePrice();
+    testRecipeOutput();
 
     return 0;
 }

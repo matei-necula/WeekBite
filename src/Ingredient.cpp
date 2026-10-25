@@ -7,6 +7,9 @@
 #include <iomanip>
 
 namespace {
+    // prices in ingredients.csv are per 100 g / 100 ml
+    constexpr double priceReferenceAmount = 100;
+
     Unit unitFromText(const std::string& unitText) {
         if (unitText == "g")
             return Unit::g;
@@ -49,7 +52,7 @@ double Ingredient::recipePrice() const {
     switch (unit) {
         case Unit::g:
         case Unit::ml:
-            return (ingredientPrice/100) * amount;
+            return (ingredientPrice / priceReferenceAmount) * amount;
         case Unit::tbsp:
         case Unit::tsp:
             return 0;
@@ -68,4 +71,14 @@ std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient) {
         os.precision(oldPrecision);
     }
     return os;
+}
+
+void Ingredient::scale(int factor) {
+    if (factor<=0)
+        throw std::invalid_argument("Invalid factor");
+    amount *= factor;
+}
+
+ const std::string& Ingredient::getName() const {
+    return name;
 }
