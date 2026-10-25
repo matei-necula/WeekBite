@@ -49,7 +49,7 @@ std::ostream& operator<<(std::ostream& os, const Recipe& recipe) {
     const std::streamsize oldPrecision = os.precision();
     os << std::setprecision(2) << std::fixed << "Total price: " << recipe.recipePrice() << " lei\n";
     os << std::defaultfloat;
-    os << std::setprecision(oldPrecision);
+    os.precision(oldPrecision);
     os << recipe.nutrition << '\n';
     bool found = false;
     for (const Ingredient& ing : recipe.ingredients) {
