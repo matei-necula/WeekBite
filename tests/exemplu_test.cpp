@@ -183,6 +183,79 @@ namespace {
         assert(out.str().substr(out.str().size() - 4) == "\n240");
     }
 
+    void testRecipeCopy() {
+        const Recipe original = oatmealBanana();
+        const std::string expected = printed(original);
+
+        // copy constructor: same output, same price
+        const Recipe copy{original};
+        assert(printed(copy) == expected);
+        assert(nearlyEqual(copy.recipePrice(), original.recipePrice()));
+
+        // operator=: every field is replaced, the source stays as it was
+        const std::vector<Ingredient> plain{Ingredient{3.40, "chicken_breast", "g", 200}};
+        Recipe target{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2};
+        target = original;
+        assert(printed(target) == expected);
+        assert(printed(original) == expected);
+
+        // assigning something else afterwards changes only the target
+        target = Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2};
+        assert(printed(target).starts_with("plain_chicken (lunch, 2 servings)\n"));
+        assert(printed(copy) == expected && "the copy is independent of the target");
+
+        // chained assignment returns the assigned object
+        Recipe first{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1};
+        Recipe second{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1};
+        first = second = original;
+        assert(printed(first) == expected);
+        assert(printed(second) == expected);
+
+        // self-assignment (through a reference, so the compiler does not warn) leaves it intact
+        const Recipe& same = target;
+        target = same;
+        assert(printed(target).starts_with("plain_chicken (lunch, 2 servings)\n"));
+        assert(nearlyEqual(target.recipePrice(), 6.80));
+    }
+
+    void testRecipeScaling() {
+        const Recipe original = oatmealBanana();
+        const std::string before = printed(original);
+
+        // 3 servings: every amount and price tripled, nutrition per serving unchanged
+        const Recipe triple = original.scaled(3);
+        assert(nearlyEqual(triple.recipePrice(), 11.91));
+        assert(printed(triple) ==
+               "oatmeal_banana (breakfast, 3 servings)\n"
+               "oats (240 - g) (3.60 lei)\n"
+               "milk (600 - ml) (4.80 lei)\n"
+               "banana (3 - pieces) (3.51 lei)\n"
+               "cinnamon (1.5 - tsp)\n"
+               "Total price: 11.91 lei\n"
+               "Calories: 549kcal, Protein: 21.5g, Carbohydrates: 90.5g, Fats: 13.1g, Sugar: 24.9g\n"
+               "(price may vary because of cinnamon)\n");
+
+        // scaled() is const: the original is untouched
+        assert(printed(original) == before);
+
+        // 1 serving gives back the same recipe
+        assert(printed(original.scaled(1)) == before);
+
+        // a refused number of servings throws and leaves the original as it was
+        const int badServings[] = {0, -3};
+        for (const int bad : badServings) {
+            bool threw = false;
+            try {
+                const Recipe broken = original.scaled(bad);
+                (void) broken;
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "servings <= 0 must throw");
+            assert(printed(original) == before && "a failed call leaves the original untouched");
+        }
+    }
+
     void testNutritionOutput() {
         std::ostringstream out;
         out << Nutrition{549, 21.5, 90.5, 13.1, 24.9};
@@ -238,6 +311,8 @@ int main() {
     testNutritionOutput();
     testRecipePrice();
     testRecipeOutput();
+    testRecipeCopy();
+    testRecipeScaling();
 
     return 0;
 }

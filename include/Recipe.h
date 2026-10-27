@@ -25,7 +25,11 @@ class Recipe {
     int servings;
 public:
     Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients, const Nutrition& nutrition, int servings);
+    Recipe(const Recipe &other);
+    Recipe & operator=(const Recipe &other);
+    ~Recipe();
     double recipePrice() const;
+    Recipe scaled(int newServings) const;
     friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
 };
 

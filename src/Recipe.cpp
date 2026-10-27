@@ -67,3 +67,41 @@ std::ostream& operator<<(std::ostream& os, const Recipe& recipe) {
     }
     return os;
 }
+
+Recipe::Recipe(const Recipe& other)
+    : name(other.name),
+      category(other.category),
+      ingredients(other.ingredients),
+      nutrition(other.nutrition),
+      servings(other.servings)
+{
+}
+
+Recipe& Recipe::operator=(const Recipe& other) {
+    if (this == &other) {
+        return *this;
+    }
+    name = other.name;
+    category = other.category;
+    ingredients = other.ingredients;
+    nutrition = other.nutrition;
+    servings = other.servings;
+    return *this;
+}
+
+Recipe::~Recipe()
+{
+}
+
+Recipe Recipe::scaled(int newServings) const
+{
+    if (newServings <= 0) {
+        throw std::invalid_argument("Invalid number of servings");
+    }
+    Recipe scaledRecipe = *this;
+    scaledRecipe.servings = newServings;
+    for (Ingredient& ing : scaledRecipe.ingredients) {
+        ing.scale(newServings);
+    }
+    return scaledRecipe;
+}
