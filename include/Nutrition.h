@@ -7,6 +7,7 @@
 
 #include <ostream>
 
+// the 5 values from recipes.csv, per serving; a small class instead of 5 loose fields in Recipe
 class Nutrition {
     double calories;
     double protein;

@@ -16,6 +16,7 @@
 #include "Ingredient.h"
 #include "Nutrition.h"
 #include "Recipe.h"
+#include "Recipes.h"
 
 static_assert(Example::limit > 0, "the invariant below assumes a positive limit");
 
@@ -256,6 +257,52 @@ namespace {
         }
     }
 
+    // a small catalog in the shape main will hand over (no cinnamon price on purpose)
+    Recipes smallCatalog() {
+        const std::map<std::string, double> prices{
+            {"oats", 1.50}, {"milk", 0.80}, {"banana", 1.17}, {"chicken_breast", 3.40}, {"eggs", 1.20},
+        };
+        const std::vector<RecipeRow> recipeRows{
+            {"oatmeal_banana", "breakfast", Nutrition{549, 21.5, 90.5, 13.1, 24.9}},
+            {"plain_chicken", "lunch", Nutrition{330, 62, 0, 7.2, 0}},
+            {"boiled_eggs", "breakfast", Nutrition{210, 18, 1, 15, 1}},
+            {"water", "dinner", Nutrition{0, 0, 0, 0, 0}},
+        };
+        const std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe{
+            {"oatmeal_banana", {{"oats", 80, "g"}, {"milk", 200, "ml"}, {"banana", 1, "pieces"}, {"cinnamon", 0.5, "tsp"}}},
+            {"plain_chicken", {{"chicken_breast", 200, "g"}}},
+            {"boiled_eggs", {{"eggs", 3, "pieces"}}},
+            // no rows for "water"; rows for a recipe that is not in recipeRows are ignored
+            {"ghost_soup", {{"oats", 999, "g"}}},
+        };
+        return Recipes{prices, recipeRows, ingredientsByRecipe};
+    }
+
+    void testRecipesCatalog() {
+        const Recipes catalog = smallCatalog();
+
+        // every recipe lands in its own category, in file order
+        const std::vector<Recipe>& breakfasts = catalog.getRecipesFromCategory(Category::breakfast);
+        const std::vector<Recipe>& lunches = catalog.getRecipesFromCategory(Category::lunch);
+        const std::vector<Recipe>& dinners = catalog.getRecipesFromCategory(Category::dinner);
+        assert(breakfasts.size() == 2);
+        assert(lunches.size() == 1);
+        assert(dinners.size() == 1 && "ghost_soup is not a recipe, only an unused group of rows");
+
+        // ingredients matched to their prices by name; cinnamon is missing → price 0 and the note
+        assert(printed(breakfasts[0]) == printed(oatmealBanana()));
+        assert(printed(breakfasts[1]).starts_with("boiled_eggs (breakfast, 1 servings)\n"));
+        assert(nearlyEqual(breakfasts[1].recipePrice(), 3.60));
+        assert(nearlyEqual(lunches[0].recipePrice(), 6.80));
+
+        // a recipe with no ingredient rows is still in the catalog, with no ingredients
+        assert(nearlyEqual(dinners[0].recipePrice(), 0));
+        assert(printed(dinners[0]).starts_with("water (dinner, 1 servings)\nTotal price: 0.00 lei\n"));
+
+        // const& to the originals: asking twice gives the same vector, not a new copy
+        assert(&catalog.getRecipesFromCategory(Category::lunch) == &lunches);
+    }
+
     void testNutritionOutput() {
         std::ostringstream out;
         out << Nutrition{549, 21.5, 90.5, 13.1, 24.9};
@@ -313,6 +360,7 @@ int main() {
     testRecipeOutput();
     testRecipeCopy();
     testRecipeScaling();
+    testRecipesCatalog();
 
     return 0;
 }
