@@ -2,17 +2,11 @@
 #include <array>
 #include <cctype>
 
-#include <csv.hpp>
 #include <date.h>
-
-#include "Example.h"
 
 
 int main() {
     std::cout << "Hello, world!\n";
-    Example e1;
-    e1.add(3);
-    e1.g();
     std::array<int, 100> v{};
     int nr;
     std::cout << "Introduceți nr: ";
@@ -58,20 +52,6 @@ int main() {
     ///////////////////////////////////////////////////////////////////////////
 
     std::cin.ignore(); // clear last \n
-
-    std::cout << "-----------------------------------------------\n";
-
-    e1.demo();
-
-    ///////////////////////////////////////////////////////////////////////////
-    ///           Exemplu fișier CSV (comma separated value)                ///
-    ///////////////////////////////////////////////////////////////////////////
-    using namespace csv;
-    CSVReader reader{"assets/date.csv"};
-    for (CSVRow& row : reader) {
-        std::cout << "nume: " << row["nume"].get_sv() << "\n";
-        // std::cout << "nume: " << row["nume"].get<>() << "\n";
-    }
 
     std::cout << "-----------------------------------------------\n";
 
