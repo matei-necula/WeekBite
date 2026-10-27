@@ -5,7 +5,7 @@
 #include "DayMeals.h"
 #include <iomanip>
 
-DayMeals::DayMeals(const Recipe &breakfast, const Recipe &lunch, const Recipe &dinner)
+DayMeals::DayMeals(const Recipe& breakfast, const Recipe& lunch, const Recipe& dinner)
     : breakfast(breakfast), lunch(lunch), dinner(dinner) {
 }
 
@@ -20,7 +20,7 @@ Nutrition DayMeals::dayNutrition() const {
     return totalNutrition;
 }
 
-std::ostream &operator<<(std::ostream &os, const DayMeals &day) {
+std::ostream& operator<<(std::ostream& os, const DayMeals& day) {
     os << day.breakfast << "\n" << day.lunch << "\n" << day.dinner << "\n";
     const std::streamsize oldPrecision = os.precision();
     os << std::setprecision(2) << std::fixed << "Day price: " << day.dayPrice() << " lei\n";

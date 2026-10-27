@@ -18,10 +18,10 @@ class Nutrition {
 public:
     Nutrition(double calories, double protein, double carbohydrates, double fats, double sugar);
 
-    Nutrition &operator+=(const Nutrition &other);
+    Nutrition& operator+=(const Nutrition& other);
 
     double getCalories() const;
-    friend std::ostream &operator<<(std::ostream &os, const Nutrition &nutrition);
+    friend std::ostream& operator<<(std::ostream& os, const Nutrition& nutrition);
 };
 
 

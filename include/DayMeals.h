@@ -15,13 +15,13 @@ class DayMeals {
     Recipe dinner;
 
 public:
-    DayMeals(const Recipe &breakfast, const Recipe &lunch, const Recipe &dinner);
+    DayMeals(const Recipe& breakfast, const Recipe& lunch, const Recipe& dinner);
 
     double dayPrice() const;
 
     Nutrition dayNutrition() const;
 
-    friend std::ostream &operator<<(std::ostream &os, const DayMeals &day);
+    friend std::ostream& operator<<(std::ostream& os, const DayMeals& day);
 };
 
 #endif //OOP_DAYMEALS_H

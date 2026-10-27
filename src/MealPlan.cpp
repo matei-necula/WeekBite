@@ -7,25 +7,25 @@
 #include <cmath>
 #include <iomanip>
 
-MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes &catalog)
+MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog)
     : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay) {
     // days starts empty; the greedy fills it
     processPlan(catalog);
 }
 
-void MealPlan::processPlan(const Recipes &catalog) {
+void MealPlan::processPlan(const Recipes& catalog) {
     double dailyBudget = weeklyBudget / 7;
     std::vector<Recipe> copyBreakfast = catalog.getRecipesFromCategory(Category::breakfast);
     std::vector<Recipe> copyLunch = catalog.getRecipesFromCategory(Category::lunch);
     std::vector<Recipe> copyDinner = catalog.getRecipesFromCategory(Category::dinner);
-    std::sort(copyLunch.begin(), copyLunch.end(), [](const Recipe &a, const Recipe &b) {
+    std::sort(copyLunch.begin(), copyLunch.end(), [](const Recipe& a, const Recipe& b) {
         return a.getNutrition().getCalories() > b.getNutrition().getCalories();
     });
 
     for (int day = 0; day < 7; day++) {
         bool dayFound = false;
         for (int i = 0; i < static_cast<int>(copyLunch.size()); i++) {
-            const Recipe &lunch = copyLunch[i];
+            const Recipe& lunch = copyLunch[i];
             if (lunch.recipePrice() > dailyBudget)
                 continue;
             else {
@@ -83,7 +83,7 @@ bool MealPlan::weekCompleted() const {
 
 // TODO: scaled: ask each DayMeals for its scaled copy (round 42)
 
-std::ostream &operator<<(std::ostream &os, const MealPlan &plan) {
+std::ostream& operator<<(std::ostream& os, const MealPlan& plan) {
     if (!plan.weekCompleted()) {
         os << "cannot compute a meal plan , please change the budget/calorie target\n";
         return os;

@@ -12,7 +12,7 @@ Nutrition::Nutrition(double calories, double protein, double carbohydrates, doub
       sugar(sugar) {
 }
 
-Nutrition &Nutrition::operator+=(const Nutrition &other) {
+Nutrition& Nutrition::operator+=(const Nutrition& other) {
     calories += other.calories;
     protein += other.protein;
     carbohydrates += other.carbohydrates;
@@ -25,7 +25,7 @@ double Nutrition::getCalories() const {
     return calories;
 }
 
-std::ostream &operator<<(std::ostream &os, const Nutrition &nutrition) {
+std::ostream& operator<<(std::ostream& os, const Nutrition& nutrition) {
     os << "Calories: " << nutrition.calories << "kcal, Protein: " << nutrition.protein << "g, Carbohydrates: " <<
             nutrition.carbohydrates << "g, Fats: " << nutrition.fats << "g, Sugar: " << nutrition.sugar << "g";
     return os;

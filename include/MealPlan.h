@@ -16,16 +16,16 @@ class MealPlan {
     double caloriesPerDay;
 
     // the greedy; private, only the constructor calls it
-    void processPlan(const Recipes &catalog);
+    void processPlan(const Recipes& catalog);
 
 public:
-    MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes &catalog);
+    MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog);
 
     bool weekCompleted() const;
 
     // TODO: scaled (compare with Recipe::scaled)
 
-    friend std::ostream &operator<<(std::ostream &os, const MealPlan &plan);
+    friend std::ostream& operator<<(std::ostream& os, const MealPlan& plan);
 };
 
 #endif //OOP_MEALPLAN_H

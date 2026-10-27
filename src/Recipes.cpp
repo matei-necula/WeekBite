@@ -5,7 +5,7 @@
 #include "Recipes.h"
 #include <stdexcept>
 
-const std::vector<Recipe> &Recipes::getRecipesFromCategory(Category category) const {
+const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) const {
     switch (category) {
         case Category::breakfast:
             return breakfasts;
@@ -17,15 +17,15 @@ const std::vector<Recipe> &Recipes::getRecipesFromCategory(Category category) co
     throw std::invalid_argument("Invalid category");
 }
 
-Recipes::Recipes(const std::map<std::string, double> &prices,
-                 const std::vector<RecipeRow> &recipeRows,
-                 const std::map<std::string, std::vector<IngredientRow> > &ingredientsByRecipe) {
-    for (const auto &[name, categoryText, nutrition]: recipeRows) {
+Recipes::Recipes(const std::map<std::string, double>& prices,
+                 const std::vector<RecipeRow>& recipeRows,
+                 const std::map<std::string, std::vector<IngredientRow> >& ingredientsByRecipe) {
+    for (const auto& [name, categoryText, nutrition]: recipeRows) {
         std::vector<Ingredient> ingredients;
         const auto found = ingredientsByRecipe.find(name); // ask map
         if (found != ingredientsByRecipe.end()) {
             // check
-            for (const auto &[ingredientName, amount, unit]: found->second) {
+            for (const auto& [ingredientName, amount, unit]: found->second) {
                 // use
                 double price = 0;
                 const auto priceFound = prices.find(ingredientName);
@@ -44,17 +44,17 @@ Recipes::Recipes(const std::map<std::string, double> &prices,
     }
 }
 
-std::ostream &operator<<(std::ostream &os, const Recipes &recipes) {
+std::ostream& operator<<(std::ostream& os, const Recipes& recipes) {
     os << "Breakfast:\n";
-    for (const Recipe &rec: recipes.breakfasts) {
+    for (const Recipe& rec: recipes.breakfasts) {
         os << rec << '\n';
     }
     os << "Lunch:\n";
-    for (const Recipe &rec: recipes.lunches) {
+    for (const Recipe& rec: recipes.lunches) {
         os << rec << '\n';
     }
     os << "Dinner:\n";
-    for (const Recipe &rec: recipes.dinners) {
+    for (const Recipe& rec: recipes.dinners) {
         os << rec << '\n';
     }
     return os;

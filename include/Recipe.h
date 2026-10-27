@@ -26,24 +26,24 @@ class Recipe {
     int servings; // 1 in recipes.csv; only a scaled() copy has more
 public:
     // const& kept on purpose (clang-tidy suggests pass by value + std::move)
-    Recipe(const std::string &name, const std::string &categoryText, const std::vector<Ingredient> &ingredients,
-           const Nutrition &nutrition, int servings);
+    Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients,
+           const Nutrition& nutrition, int servings);
 
     // Tema 1 asks for these on one class; written by hand even though the generated ones would do the same
-    Recipe(const Recipe &other);
+    Recipe(const Recipe& other);
 
-    Recipe &operator=(const Recipe &other);
+    Recipe& operator=(const Recipe& other);
 
     ~Recipe();
 
     double recipePrice() const;
 
-    const Nutrition &getNutrition() const;
+    const Nutrition& getNutrition() const;
 
-    const std::string &getName() const;
+    const std::string& getName() const;
 
     Recipe scaled(int newServings) const; // returns a scaled copy so the recipe in the catalog stays unchanged
-    friend std::ostream &operator<<(std::ostream &os, const Recipe &recipe);
+    friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
 };
 
 

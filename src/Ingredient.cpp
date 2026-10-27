@@ -43,7 +43,7 @@ namespace {
     }
 }
 
-Ingredient::Ingredient(double price, const std::string &name, const std::string& unitText, double amount)
+Ingredient::Ingredient(double price, const std::string& name, const std::string& unitText, double amount)
         : ingredientPrice(price),
         name(name),
         unit(unitFromText(unitText)),

@@ -18,7 +18,7 @@ class Ingredient {
 
 public:
     // takes the unit as text so the text -> Unit conversion stays inside Ingredient
-    Ingredient(double price, const std::string &name, const std::string& unitText, double amount);
+    Ingredient(double price, const std::string& name, const std::string& unitText, double amount);
     double recipePrice() const;
     friend std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient);
     void scale(int factor); // changes this ingredient; Recipe::scaled() calls it on its own copy
