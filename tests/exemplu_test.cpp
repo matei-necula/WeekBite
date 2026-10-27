@@ -435,7 +435,8 @@ namespace {
     }
 
     void testGetters() {
-        assert(nearlyEqual(Nutrition(549, 21.5, 90.5, 13.1, 24.9).getCalories(), 549));
+        const Nutrition nutrition{549, 21.5, 90.5, 13.1, 24.9};
+        assert(nearlyEqual(nutrition.getCalories(), 549));
         assert(oatmealBanana().getName() == "oatmeal_banana");
         // the greedy reads calories through the recipe
         assert(nearlyEqual(plainChicken().getNutrition().getCalories(), 330));
@@ -508,9 +509,10 @@ namespace {
 
         // every recipe served exactly once across the week
         for (int i = 1; i <= 7; i++) {
-            assert(timesServed(output, "b" + std::to_string(i)) == 1);
-            assert(timesServed(output, "l" + std::to_string(i)) == 1);
-            assert(timesServed(output, "d" + std::to_string(i)) == 1);
+            const std::string number = std::to_string(i);
+            assert(timesServed(output, "b" + number) == 1);
+            assert(timesServed(output, "l" + number) == 1);
+            assert(timesServed(output, "d" + number) == 1);
         }
 
         // highest-kcal lunch first: l7 (760 kcal) on day 1, l1 (700 kcal) on day 7
