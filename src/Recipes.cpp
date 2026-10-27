@@ -23,14 +23,15 @@ Recipes::Recipes(const std::map<std::string, double> &prices,
     for (const auto &[name, categoryText, nutrition]: recipeRows) {
         std::vector<Ingredient> ingredients;
         const auto found = ingredientsByRecipe.find(name); // ask map
-        if (found != ingredientsByRecipe.end()) { // check
-            for (const auto& [ingredientName, amount, unit] : found->second ) { // use
+        if (found != ingredientsByRecipe.end()) {
+            // check
+            for (const auto &[ingredientName, amount, unit]: found->second) {
+                // use
                 double price = 0;
                 const auto priceFound = prices.find(ingredientName);
-                if (priceFound != prices.end()) { price=priceFound->second;}
+                if (priceFound != prices.end()) { price = priceFound->second; }
                 ingredients.push_back(Ingredient(price, ingredientName, unit, amount));
             }
-
         }
         const Recipe recipe{name, categoryText, ingredients, nutrition, 1};
         if (categoryText == "breakfast") {
@@ -41,4 +42,20 @@ Recipes::Recipes(const std::map<std::string, double> &prices,
             dinners.push_back(recipe);
         }
     }
+}
+
+std::ostream &operator<<(std::ostream &os, const Recipes &recipes) {
+    os << "Breakfast:\n";
+    for (const Recipe &rec: recipes.breakfasts) {
+        os << rec << '\n';
+    } // for each recipe in recipes.breakfasts: print it with its own <<, maybe a blank line between
+    os << "Lunch:\n";
+    for (const Recipe &rec: recipes.lunches) {
+        os << rec << '\n';
+    } // for each recipe in recipes.lunches: print it with its own <<, maybe a blank line between
+    os << "Dinner:\n";
+    for (const Recipe &rec: recipes.dinners) {
+        os << rec << '\n';
+    } // for each recipe in recipes.dinners: print it with its own <<, maybe a blank line between
+    return os;
 }

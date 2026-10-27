@@ -303,6 +303,38 @@ namespace {
         assert(&catalog.getRecipesFromCategory(Category::lunch) == &lunches);
     }
 
+    std::string printed(const Recipes& catalog) {
+        std::ostringstream out;
+        out << catalog;
+        return out.str();
+    }
+
+    void testRecipesOutput() {
+        const Recipes catalog = smallCatalog();
+        const std::vector<Recipe>& breakfasts = catalog.getRecipesFromCategory(Category::breakfast);
+        const std::vector<Recipe>& lunches = catalog.getRecipesFromCategory(Category::lunch);
+        const std::vector<Recipe>& dinners = catalog.getRecipesFromCategory(Category::dinner);
+
+        // heading per category, then every recipe in full (Recipe's <<), each followed by a blank line
+        assert(printed(catalog) ==
+               "Breakfast:\n" +
+               printed(breakfasts[0]) + "\n" +
+               printed(breakfasts[1]) + "\n" +
+               "Lunch:\n" +
+               printed(lunches[0]) + "\n" +
+               "Dinner:\n" +
+               printed(dinners[0]) + "\n");
+
+        // an empty catalog still prints the 3 headings
+        const Recipes empty{{}, {}, {}};
+        assert(printed(empty) == "Breakfast:\nLunch:\nDinner:\n");
+
+        // the 2-decimal prices must not leak into what is printed next
+        std::ostringstream out;
+        out << catalog << 0.125;
+        assert(out.str().ends_with("\n0.125"));
+    }
+
     void testNutritionOutput() {
         std::ostringstream out;
         out << Nutrition{549, 21.5, 90.5, 13.1, 24.9};
@@ -361,6 +393,7 @@ int main() {
     testRecipeCopy();
     testRecipeScaling();
     testRecipesCatalog();
+    testRecipesOutput();
 
     return 0;
 }
