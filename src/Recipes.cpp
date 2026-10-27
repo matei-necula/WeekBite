@@ -48,14 +48,14 @@ std::ostream &operator<<(std::ostream &os, const Recipes &recipes) {
     os << "Breakfast:\n";
     for (const Recipe &rec: recipes.breakfasts) {
         os << rec << '\n';
-    } // for each recipe in recipes.breakfasts: print it with its own <<, maybe a blank line between
+    }
     os << "Lunch:\n";
     for (const Recipe &rec: recipes.lunches) {
         os << rec << '\n';
-    } // for each recipe in recipes.lunches: print it with its own <<, maybe a blank line between
+    }
     os << "Dinner:\n";
     for (const Recipe &rec: recipes.dinners) {
         os << rec << '\n';
-    } // for each recipe in recipes.dinners: print it with its own <<, maybe a blank line between
+    }
     return os;
 }

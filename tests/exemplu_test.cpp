@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 // the library under test; include/ comes from oop
+#include "DayMeals.h"
 #include "Ingredient.h"
 #include "Nutrition.h"
 #include "Recipe.h"
@@ -343,6 +344,93 @@ namespace {
         out << Nutrition{372, 15.6, 55.2, 11.0, 29.1};
         assert(out.str() == "Calories: 372kcal, Protein: 15.6g, Carbohydrates: 55.2g, Fats: 11g, Sugar: 29.1g");
     }
+
+    void testNutritionSum() {
+        Nutrition day{549, 21.5, 90.5, 13.1, 24.9};
+        const Nutrition lunch{372, 15.6, 55.2, 11.0, 29.1};
+
+        // += returns the left object itself, so it can be chained
+        assert(&(day += lunch) == &day);
+
+        std::ostringstream out;
+        out << day;
+        assert(out.str() == "Calories: 921kcal, Protein: 37.1g, Carbohydrates: 145.7g, Fats: 24.1g, Sugar: 54g");
+
+        // the right side stays unchanged
+        out.str("");
+        out << lunch;
+        assert(out.str() == "Calories: 372kcal, Protein: 15.6g, Carbohydrates: 55.2g, Fats: 11g, Sugar: 29.1g");
+
+        // three meals added into a zero total, the way a day adds them up
+        Nutrition total{0, 0, 0, 0, 0};
+        total += lunch;
+        total += lunch;
+        total += lunch;
+        out.str("");
+        out << total;
+        assert(out.str() == "Calories: 1116kcal, Protein: 46.8g, Carbohydrates: 165.6g, Fats: 33g, Sugar: 87.3g");
+    }
+
+    Recipe plainChicken() {
+        return Recipe{"plain_chicken", "lunch", {Ingredient{3.40, "chicken_breast", "g", 200}}, Nutrition{330, 62, 0, 7.2, 0}, 1};
+    }
+
+    Recipe spicedChicken() {
+        const std::vector<Ingredient> spiced{
+            Ingredient{3.40, "chicken_breast", "g", 200},
+            Ingredient{0, "salt", "tsp", 0.5},
+        };
+        return Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1};
+    }
+
+    std::string printed(const DayMeals& day) {
+        std::ostringstream out;
+        out << day;
+        return out.str();
+    }
+
+    void testDayMeals() {
+        const DayMeals day{oatmealBanana(), plainChicken(), spicedChicken()};
+
+        // 3.97 + 6.80 + 6.80
+        assert(nearlyEqual(day.dayPrice(), 17.57));
+
+        std::ostringstream out;
+        out << day.dayNutrition();
+        assert(out.str() == "Calories: 1279kcal, Protein: 133.5g, Carbohydrates: 90.5g, Fats: 30.3g, Sugar: 24.9g");
+
+        // getNutrition hands out the recipe's own values
+        out.str("");
+        out << oatmealBanana().getNutrition();
+        assert(out.str() == "Calories: 549kcal, Protein: 21.5g, Carbohydrates: 90.5g, Fats: 13.1g, Sugar: 24.9g");
+
+        // the 3 recipes in full, a blank line after each, then the day totals
+        assert(printed(day) ==
+               printed(oatmealBanana()) + "\n" +
+               printed(plainChicken()) + "\n" +
+               printed(spicedChicken()) + "\n" +
+               "Day price: 17.57 lei\n"
+               "Total nutrition: Calories: 1279kcal, Protein: 133.5g, Carbohydrates: 90.5g, Fats: 30.3g, Sugar: 24.9g\n");
+
+        // the day keeps copies: changing the recipe it was built from does not change the day
+        Recipe lunch = plainChicken();
+        const DayMeals copied{oatmealBanana(), lunch, spicedChicken()};
+        const std::string before = printed(copied);
+        lunch = lunch.scaled(4);
+        assert(printed(copied) == before);
+
+        // a scaled recipe in the day: price goes up, nutrition per serving stays
+        const DayMeals scaledDay{oatmealBanana(), plainChicken().scaled(2), spicedChicken()};
+        assert(nearlyEqual(scaledDay.dayPrice(), 3.97 + 13.60 + 6.80));
+        out.str("");
+        out << scaledDay.dayNutrition();
+        assert(out.str() == "Calories: 1279kcal, Protein: 133.5g, Carbohydrates: 90.5g, Fats: 30.3g, Sugar: 24.9g");
+
+        // the 2-decimal price must not leak into what is printed next
+        out.str("");
+        out << day << 240.0;
+        assert(out.str().substr(out.str().size() - 4) == "\n240");
+    }
 }
 
 // checked through the public interface only
@@ -351,12 +439,14 @@ int main() {
     testIngredientOutput();
     testIngredientScaling();
     testNutritionOutput();
+    testNutritionSum();
     testRecipePrice();
     testRecipeOutput();
     testRecipeCopy();
     testRecipeScaling();
     testRecipesCatalog();
     testRecipesOutput();
+    testDayMeals();
 
     return 0;
 }
