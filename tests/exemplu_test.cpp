@@ -15,6 +15,7 @@
 // the library under test; include/ comes from oop
 #include "DayMeals.h"
 #include "Ingredient.h"
+#include "MealPlan.h"
 #include "Nutrition.h"
 #include "Recipe.h"
 #include "Recipes.h"
@@ -432,6 +433,156 @@ namespace {
         out << day << 240.0;
         assert(out.str().substr(out.str().size() - 4) == "\n240");
     }
+
+    void testGetters() {
+        assert(nearlyEqual(Nutrition(549, 21.5, 90.5, 13.1, 24.9).getCalories(), 549));
+        assert(oatmealBanana().getName() == "oatmeal_banana");
+        // the greedy reads calories through the recipe
+        assert(nearlyEqual(plainChicken().getNutrition().getCalories(), 330));
+    }
+
+    // one row per recipe: name, category, kcal, price; each recipe gets a single ingredient
+    // "<name>_ing" (1 piece), so the recipe price is exactly the given price
+    using PlanRow = std::tuple<std::string, std::string, double, double>;
+
+    Recipes catalogOf(const std::vector<PlanRow>& rows) {
+        std::map<std::string, double> prices;
+        std::vector<RecipeRow> recipeRows;
+        std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
+        for (const auto& [name, category, kcal, price] : rows) {
+            prices[name + "_ing"] = price;
+            recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0});
+            ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
+        }
+        return Recipes{prices, recipeRows, ingredientsByRecipe};
+    }
+
+    // 7 breakfasts, lunches and dinners at 1 leu each; lunch kcal 700, 710, ..., 760
+    std::vector<PlanRow> weekRows() {
+        std::vector<PlanRow> rows;
+        for (int i = 1; i <= 7; i++) {
+            rows.emplace_back("b" + std::to_string(i), "breakfast", 400 + 10 * i, 1);
+            rows.emplace_back("l" + std::to_string(i), "lunch", 690 + 10 * i, 1);
+            rows.emplace_back("d" + std::to_string(i), "dinner", 450 + 10 * i, 1);
+        }
+        return rows;
+    }
+
+    std::string printed(const MealPlan& plan) {
+        std::ostringstream out;
+        out << plan;
+        return out.str();
+    }
+
+    // how many times a recipe is served: its header "name (" (ingredient lines read "name_ing (")
+    int timesServed(const std::string& output, const std::string& name) {
+        int count = 0;
+        for (std::size_t at = output.find(name + " ("); at != std::string::npos; at = output.find(name + " (", at + 1)) {
+            count++;
+        }
+        return count;
+    }
+
+    // the text of one day: from "Day n" up to the next day (or the week total)
+    std::string dayText(const std::string& output, int n) {
+        const std::size_t start = output.find("Day " + std::to_string(n) + "\n");
+        const std::size_t next = output.find(n < 7 ? "Day " + std::to_string(n + 1) + "\n" : "Total money spent:");
+        return output.substr(start, next - start);
+    }
+
+    const std::string noPlan = "cannot compute a meal plan , please change the budget/calorie target\n";
+
+    void testMealPlanWeek() {
+        const Recipes catalog = catalogOf(weekRows());
+        // 70 lei / 7 = 10 lei a day; every day costs 3
+        const MealPlan plan{70, 2000, catalog};
+        assert(plan.weekCompleted());
+
+        const std::string output = printed(plan);
+        assert(output.starts_with("Day 1\n"));
+        assert(output.find("Day 7\n") != std::string::npos);
+        assert(output.find("Day 8") == std::string::npos);
+        // each day ends with a blank line, then the week total
+        assert(output.find("\n\nDay 2\n") != std::string::npos);
+        assert(output.ends_with("\n\nTotal money spent: 21.00 lei\n"));
+
+        // every recipe served exactly once across the week
+        for (int i = 1; i <= 7; i++) {
+            assert(timesServed(output, "b" + std::to_string(i)) == 1);
+            assert(timesServed(output, "l" + std::to_string(i)) == 1);
+            assert(timesServed(output, "d" + std::to_string(i)) == 1);
+        }
+
+        // highest-kcal lunch first: l7 (760 kcal) on day 1, l1 (700 kcal) on day 7
+        assert(timesServed(dayText(output, 1), "l7") == 1);
+        assert(timesServed(dayText(output, 7), "l1") == 1);
+
+        // the catalog is only read: still 7 recipes per category
+        assert(catalog.getRecipesFromCategory(Category::breakfast).size() == 7);
+        assert(catalog.getRecipesFromCategory(Category::lunch).size() == 7);
+        assert(catalog.getRecipesFromCategory(Category::dinner).size() == 7);
+
+        // the 2-decimal total must not leak into what is printed next
+        std::ostringstream out;
+        out << plan << 0.125;
+        assert(out.str().ends_with("\n0.125"));
+    }
+
+    void testMealPlanClosestCalories() {
+        // day 1: lunch l7 = 760 kcal, target 2000 → half = 620
+        // breakfast "near" (630, 10 away) beats b7 (470) and "far" (700, 80 away)
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("near", "breakfast", 630, 1);
+        rows.emplace_back("far", "breakfast", 700, 1);
+        const MealPlan plan{70, 2000, catalogOf(rows)};
+        assert(plan.weekCompleted());
+        const std::string output = printed(plan);
+        assert(timesServed(dayText(output, 1), "near") == 1);
+        // closest is closest even when it is far from half: no breakfast is left out for being far
+        assert(timesServed(output, "far") == 1);
+    }
+
+    void testMealPlanBudget() {
+        // 10 lei a day
+        std::vector<PlanRow> rows = weekRows();
+        // the highest-kcal lunch costs more than the whole day → skipped, the next lunch is tried
+        rows.emplace_back("lobster", "lunch", 1500, 11);
+        // fits the day alone, but leaves (10 - 9.5) / 2 = 0.25 lei per meal: no breakfast fits → next lunch
+        rows.emplace_back("steak", "lunch", 1400, 9.5);
+        // the closest breakfast to half, but over (10 - 1) / 2 = 4.5 lei → the next closest is taken
+        rows.emplace_back("caviar", "breakfast", 620, 5);
+        const MealPlan plan{70, 2000, catalogOf(rows)};
+        assert(plan.weekCompleted());
+        const std::string output = printed(plan);
+        assert(timesServed(output, "lobster") == 0);
+        assert(timesServed(output, "steak") == 0);
+        assert(timesServed(output, "caviar") == 0);
+        assert(timesServed(dayText(output, 1), "l7") == 1);
+    }
+
+    void testMealPlanFails() {
+        // 7 lei a week = 1 leu a day: the lunch fits, nothing is left for breakfast → no day at all
+        const MealPlan poor{7, 2000, catalogOf(weekRows())};
+        assert(!poor.weekCompleted());
+        assert(printed(poor) == noPlan);
+
+        // only 6 lunches: recipes are not repeated, so day 7 has no lunch
+        std::vector<PlanRow> rows;
+        for (const PlanRow& row : weekRows()) {
+            if (std::get<0>(row) != "l1") {
+                rows.push_back(row);
+            }
+        }
+        const MealPlan sixLunches{70, 2000, catalogOf(rows)};
+        assert(!sixLunches.weekCompleted());
+        assert(printed(sixLunches) == noPlan);
+
+        // an empty catalog cannot fill a single day
+        const Recipes empty{{}, {}, {}};
+        const MealPlan nothing{70, 2000, empty};
+        assert(!nothing.weekCompleted());
+        assert(printed(nothing) == noPlan);
+    }
 }
 
 // checked through the public interface only
@@ -448,6 +599,11 @@ int main() {
     testRecipesCatalog();
     testRecipesOutput();
     testDayMeals();
+    testGetters();
+    testMealPlanWeek();
+    testMealPlanClosestCalories();
+    testMealPlanBudget();
+    testMealPlanFails();
 
     return 0;
 }

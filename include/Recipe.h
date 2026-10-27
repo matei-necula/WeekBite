@@ -40,6 +40,8 @@ public:
 
     const Nutrition &getNutrition() const;
 
+    const std::string &getName() const;
+
     Recipe scaled(int newServings) const; // returns a scaled copy so the recipe in the catalog stays unchanged
     friend std::ostream &operator<<(std::ostream &os, const Recipe &recipe);
 };

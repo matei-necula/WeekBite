@@ -21,6 +21,10 @@ Nutrition &Nutrition::operator+=(const Nutrition &other) {
     return *this;
 }
 
+double Nutrition::getCalories() const {
+    return calories;
+}
+
 std::ostream &operator<<(std::ostream &os, const Nutrition &nutrition) {
     os << "Calories: " << nutrition.calories << "kcal, Protein: " << nutrition.protein << "g, Carbohydrates: " <<
             nutrition.carbohydrates << "g, Fats: " << nutrition.fats << "g, Sugar: " << nutrition.sugar << "g";

@@ -117,3 +117,7 @@ Recipe Recipe::scaled(int newServings) const {
 const Nutrition &Recipe::getNutrition() const {
     return nutrition;
 }
+
+const std::string &Recipe::getName() const {
+    return name;
+}
