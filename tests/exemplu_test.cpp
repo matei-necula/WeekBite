@@ -350,7 +350,8 @@ namespace {
         const Nutrition lunch{372, 15.6, 55.2, 11.0, 29.1};
 
         // += returns the left object itself, so it can be chained
-        assert(&(day += lunch) == &day);
+        const Nutrition& result = (day += lunch);
+        assert(&result == &day);
 
         std::ostringstream out;
         out << day;
