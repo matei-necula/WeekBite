@@ -547,7 +547,7 @@ namespace {
             assert(timesServed(output, "d" + number) == 1);
         }
 
-        // highest-kcal lunch first: l7 (760 kcal) on day 1, l1 (700 kcal) on day 7
+        // lunch closest to 40% of 2000 = 800 kcal first: l7 (760 kcal) on day 1, l1 (700 kcal) on day 7
         assert(timesServed(dayText(output, 1), "l7") == 1);
         assert(timesServed(dayText(output, 7), "l1") == 1);
 
@@ -576,13 +576,39 @@ namespace {
         assert(timesServed(output, "far") == 1);
     }
 
+    void testMealPlanLunchOrder() {
+        // 40% of 2000 = 800 kcal: the closest lunch goes first, above or below 800
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("exact", "lunch", 800, 1);
+        rows.emplace_back("above", "lunch", 805, 1);
+        // the most kcal, but the farthest from 800 → never reached in 7 days
+        rows.emplace_back("huge", "lunch", 1600, 1);
+        const MealPlan plan{70, 2000, catalogOf(rows)};
+        assert(plan.weekCompleted());
+        const std::string output = printed(plan);
+        assert(timesServed(dayText(output, 1), "exact") == 1);
+        assert(timesServed(dayText(output, 2), "above") == 1);
+        assert(timesServed(dayText(output, 3), "l7") == 1);
+        assert(timesServed(output, "huge") == 0);
+        // 10 lunches for 7 days: the two farthest from 800 (l1, l2) are left out too
+        assert(timesServed(output, "l1") == 0);
+        assert(timesServed(output, "l2") == 0);
+
+        // a low target turns the order around: 40% of 1300 = 520, so l1 (700) first and l7 (760) last
+        const MealPlan low{70, 1300, catalogOf(weekRows())};
+        assert(low.weekCompleted());
+        const std::string lowOutput = printed(low);
+        assert(timesServed(dayText(lowOutput, 1), "l1") == 1);
+        assert(timesServed(dayText(lowOutput, 7), "l7") == 1);
+    }
+
     void testMealPlanBudget() {
         // 10 lei a day
         std::vector<PlanRow> rows = weekRows();
-        // the highest-kcal lunch costs more than the whole day → skipped, the next lunch is tried
-        rows.emplace_back("lobster", "lunch", 1500, 11);
-        // fits the day alone, but leaves (10 - 9.5) / 2 = 0.25 lei per meal: no breakfast fits → next lunch
-        rows.emplace_back("steak", "lunch", 1400, 9.5);
+        // exactly 40% of the target, so tried first, but costs more than the whole day → skipped, the next lunch is tried
+        rows.emplace_back("lobster", "lunch", 800, 11);
+        // tried second; fits the day alone, but leaves (10 - 9.5) / 2 = 0.25 lei per meal: no breakfast fits → next lunch
+        rows.emplace_back("steak", "lunch", 795, 9.5);
         // the closest breakfast to half, but over (10 - 1) / 2 = 4.5 lei → the next closest is taken
         rows.emplace_back("caviar", "breakfast", 620, 5);
         const MealPlan plan{70, 2000, catalogOf(rows)};
@@ -687,6 +713,7 @@ int main() {
     testGetters();
     testMealPlanWeek();
     testMealPlanClosestCalories();
+    testMealPlanLunchOrder();
     testMealPlanBudget();
     testMealPlanFails();
     testMealPlanScaling();

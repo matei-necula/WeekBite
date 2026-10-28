@@ -15,12 +15,16 @@ MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& ca
 }
 
 void MealPlan::processPlan(const Recipes& catalog) {
+    constexpr double lunchCalorieRatio = 0.4;
+    const double targetLunchCalories = caloriesPerDay * lunchCalorieRatio;
     double dailyBudget = weeklyBudget / 7;
     std::vector<Recipe> copyBreakfast = catalog.getRecipesFromCategory(Category::breakfast);
     std::vector<Recipe> copyLunch = catalog.getRecipesFromCategory(Category::lunch);
     std::vector<Recipe> copyDinner = catalog.getRecipesFromCategory(Category::dinner);
-    std::sort(copyLunch.begin(), copyLunch.end(), [](const Recipe& a, const Recipe& b) {
-        return a.getNutrition().getCalories() > b.getNutrition().getCalories();
+    std::stable_sort(copyLunch.begin(), copyLunch.end(), [targetLunchCalories](const Recipe& a, const Recipe& b) {
+        double distA = std::abs(a.getNutrition().getCalories() - targetLunchCalories);
+        double distB = std::abs(b.getNutrition().getCalories() - targetLunchCalories);
+        return distA < distB;
     });
 
     for (int day = 0; day < 7; day++) {
@@ -83,10 +87,10 @@ bool MealPlan::weekCompleted() const {
 }
 
 MealPlan MealPlan::scaled(int newServings) const {
-    if (newServings<=0) {
+    if (newServings <= 0) {
         throw std::invalid_argument("Invalid number of servings");
     }
-    MealPlan scaledPlan=*this;
+    MealPlan scaledPlan = *this;
     scaledPlan.days.clear();
     for (const auto& day : days) {
         scaledPlan.days.push_back(day.scaled(newServings));
