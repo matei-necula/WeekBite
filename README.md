@@ -1,6 +1,6 @@
 # WeekBite
 
-WeekBite is a weekly meal planner. Using recipes and ingredients read from data files, it automatically builds a week-long plan that stays within a budget, meets nutrition targets and respects dietary restrictions (e.g. vegetarian, gluten-free). For the chosen plan it calculates total cost and nutrition and generates a shopping list that merges the same ingredient across recipes.
+WeekBite is a weekly meal planner. Using recipes, ingredients and prices read from CSV files, it builds a 7-day plan (breakfast, lunch, dinner) that stays within a weekly budget, aims for a daily calorie target and never repeats a recipe in the same week. For the plan it shows the price and nutrition of every day and the total cost of the week, and it can scale the whole plan to any number of servings. Dietary restrictions (e.g. vegetarian, gluten-free) are planned for a later version.
 
 ### Folosiți template-ul corespunzător grupei voastre!
 
