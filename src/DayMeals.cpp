@@ -4,6 +4,7 @@
 
 #include "DayMeals.h"
 #include <iomanip>
+#include <stdexcept>
 
 DayMeals::DayMeals(const Recipe& breakfast, const Recipe& lunch, const Recipe& dinner)
     : breakfast(breakfast), lunch(lunch), dinner(dinner) {
@@ -18,6 +19,14 @@ Nutrition DayMeals::dayNutrition() const {
     totalNutrition += lunch.getNutrition();
     totalNutrition += dinner.getNutrition();
     return totalNutrition;
+}
+
+DayMeals DayMeals::scaled(int newServings) const {
+    if (newServings <= 0) {
+        throw std::invalid_argument("Invalid number of servings");
+    }
+    DayMeals scaledDay(breakfast.scaled(newServings), lunch.scaled(newServings), dinner.scaled(newServings));
+    return scaledDay;
 }
 
 std::ostream& operator<<(std::ostream& os, const DayMeals& day) {

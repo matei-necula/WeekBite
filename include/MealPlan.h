@@ -23,7 +23,7 @@ public:
 
     bool weekCompleted() const;
 
-    // TODO: scaled (compare with Recipe::scaled)
+    MealPlan scaled(int newServings) const;
 
     friend std::ostream& operator<<(std::ostream& os, const MealPlan& plan);
 };

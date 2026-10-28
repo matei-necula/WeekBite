@@ -21,6 +21,8 @@ public:
 
     Nutrition dayNutrition() const;
 
+    DayMeals scaled(int newServings) const;
+
     friend std::ostream& operator<<(std::ostream& os, const DayMeals& day);
 };
 

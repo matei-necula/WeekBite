@@ -434,6 +434,38 @@ namespace {
         assert(out.str().substr(out.str().size() - 4) == "\n240");
     }
 
+    void testDayMealsScaling() {
+        const DayMeals day{oatmealBanana(), plainChicken(), spicedChicken()};
+        const std::string before = printed(day);
+
+        // every recipe in the day gets the same servings: price doubled, nutrition per serving unchanged
+        const DayMeals doubled = day.scaled(2);
+        assert(nearlyEqual(doubled.dayPrice(), 2 * 17.57));
+        const std::string expected =
+            printed(oatmealBanana().scaled(2)) + "\n" +
+            printed(plainChicken().scaled(2)) + "\n" +
+            printed(spicedChicken().scaled(2)) + "\n" +
+            "Day price: 35.14 lei\n"
+            "Total nutrition: Calories: 1279kcal, Protein: 133.5g, Carbohydrates: 90.5g, Fats: 30.3g, Sugar: 24.9g\n";
+        assert(printed(doubled) == expected);
+
+        // scaled() is const: the day it was called on is untouched
+        assert(printed(day) == before);
+
+        const int badServings[] = {0, -2};
+        for (const int bad : badServings) {
+            bool threw = false;
+            try {
+                const DayMeals broken = day.scaled(bad);
+                (void) broken;
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "servings <= 0 must throw");
+            assert(printed(day) == before && "a failed call leaves the day untouched");
+        }
+    }
+
     void testGetters() {
         const Nutrition nutrition{549, 21.5, 90.5, 13.1, 24.9};
         assert(nearlyEqual(nutrition.getCalories(), 549));
@@ -585,6 +617,56 @@ namespace {
         assert(!nothing.weekCompleted());
         assert(printed(nothing) == noPlan);
     }
+    // how many times a piece of text appears in the output
+    int countOf(const std::string& output, const std::string& piece) {
+        int count = 0;
+        for (std::size_t at = output.find(piece); at != std::string::npos; at = output.find(piece, at + 1)) {
+            count++;
+        }
+        return count;
+    }
+
+    void testMealPlanScaling() {
+        const MealPlan plan{70, 2000, catalogOf(weekRows())};
+        const std::string before = printed(plan);
+
+        // the greedy does not run again: same 7 days, same recipes in the same days, 3 servings each
+        const MealPlan triple = plan.scaled(3);
+        assert(triple.weekCompleted());
+        const std::string output = printed(triple);
+        assert(countOf(output, ", 3 servings)\n") == 21);
+        assert(countOf(output, ", 1 servings)\n") == 0);
+        assert(timesServed(dayText(output, 1), "l7") == 1);
+        assert(timesServed(dayText(output, 7), "l1") == 1);
+        // 3 lei a day before, 9 after
+        assert(countOf(output, "Day price: 9.00 lei\n") == 7);
+        assert(output.ends_with("\n\nTotal money spent: 63.00 lei\n"));
+
+        // scaled() is const: the plan it was called on is untouched
+        assert(printed(plan) == before);
+        // 1 serving gives back the same plan
+        const MealPlan same = plan.scaled(1);
+        assert(printed(same) == before);
+
+        const int badServings[] = {0, -1};
+        for (const int bad : badServings) {
+            bool threw = false;
+            try {
+                const MealPlan broken = plan.scaled(bad);
+                (void) broken;
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "servings <= 0 must throw");
+            assert(printed(plan) == before && "a failed call leaves the plan untouched");
+        }
+
+        // a failed plan stays failed after scaling
+        const MealPlan poor{7, 2000, catalogOf(weekRows())};
+        const MealPlan poorScaled = poor.scaled(2);
+        assert(!poorScaled.weekCompleted());
+        assert(printed(poorScaled) == noPlan);
+    }
 }
 
 // checked through the public interface only
@@ -601,11 +683,13 @@ int main() {
     testRecipesCatalog();
     testRecipesOutput();
     testDayMeals();
+    testDayMealsScaling();
     testGetters();
     testMealPlanWeek();
     testMealPlanClosestCalories();
     testMealPlanBudget();
     testMealPlanFails();
+    testMealPlanScaling();
 
     return 0;
 }

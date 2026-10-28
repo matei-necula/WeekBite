@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <stdexcept>
 
 MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog)
     : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay) {
@@ -81,7 +82,17 @@ bool MealPlan::weekCompleted() const {
     return (days.size() == 7);
 }
 
-// TODO: scaled: ask each DayMeals for its scaled copy (round 42)
+MealPlan MealPlan::scaled(int newServings) const {
+    if (newServings<=0) {
+        throw std::invalid_argument("Invalid number of servings");
+    }
+    MealPlan scaledPlan=*this;
+    scaledPlan.days.clear();
+    for (const auto& day : days) {
+        scaledPlan.days.push_back(day.scaled(newServings));
+    }
+    return scaledPlan;
+}
 
 std::ostream& operator<<(std::ostream& os, const MealPlan& plan) {
     if (!plan.weekCompleted()) {
