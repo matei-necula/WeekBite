@@ -19,6 +19,7 @@
 #include "Nutrition.h"
 #include "Recipe.h"
 #include "Recipes.h"
+#include "UserChoices.h"
 
 namespace {
     bool nearlyEqual(double a, double b) {
@@ -693,6 +694,174 @@ namespace {
         assert(!poorScaled.weekCompleted());
         assert(printed(poorScaled) == noPlan);
     }
+
+    void testRecipeQuestions() {
+        const Recipe oatmeal = oatmealBanana();
+
+        assert(oatmeal.questionCategory(Category::breakfast));
+        assert(!oatmeal.questionCategory(Category::lunch));
+
+        // partial match on the name; Recipe expects lowercase text (UserChoices lowercases it)
+        assert(oatmeal.questionName("banana"));
+        assert(oatmeal.questionName("oatmeal_banana"));
+        assert(!oatmeal.questionName("chicken"));
+        assert(!oatmeal.questionName("BANANA"));
+
+        // any ingredient may match, partially; an unpriced one (cinnamon) still counts
+        assert(oatmeal.questionIngredient("milk"));
+        assert(oatmeal.questionIngredient("cinna"));
+        assert(!oatmeal.questionIngredient("egg"));
+
+        // a recipe with no ingredients matches no ingredient text
+        const Recipes catalog = smallCatalog();
+        const Recipe& water = catalog.getRecipesFromCategory(Category::dinner)[0];
+        assert(!water.questionIngredient("o"));
+    }
+
+    void testPrintShort() {
+        std::ostringstream out;
+        oatmealBanana().printShort(out);
+        out << 3.14159;
+        // one line: name, kcal, price with 2 decimals; the stream's precision is restored afterwards
+        assert(out.str() == "Name: oatmeal_banana, kcal: 549.00, price: 3.97 lei\n3.14159");
+    }
+
+    bool throwsInvalidArgument(bool namePicked, bool ingredientPicked, const std::string& text) {
+        try {
+            const UserChoices choices{false, namePicked, ingredientPicked, Category::breakfast, text, text,
+                                      SortChoice::price};
+            (void) choices;
+        } catch (const std::invalid_argument&) {
+            return true;
+        }
+        return false;
+    }
+
+    void testUserChoices() {
+        const Recipe oatmeal = oatmealBanana();
+        const Recipe chicken = plainChicken();
+
+        // the user's text is lowercased once, so "Banana" finds oatmeal_banana
+        const UserChoices byName{false, true, false, Category::breakfast, "Banana", "", SortChoice::price};
+        assert(byName.matches(oatmeal));
+        assert(!byName.matches(chicken));
+
+        const UserChoices byIngredient{false, false, true, Category::breakfast, "", "MILK", SortChoice::price};
+        assert(byIngredient.matches(oatmeal));
+        assert(!byIngredient.matches(chicken));
+
+        // every picked criterion must match (AND)
+        const UserChoices lunchWithOats{true, false, true, Category::lunch, "", "oats", SortChoice::price};
+        assert(!lunchWithOats.matches(oatmeal) && "has oats, but is a breakfast");
+        assert(!lunchWithOats.matches(chicken) && "is a lunch, but has no oats");
+        const UserChoices breakfastWithOats{true, false, true, Category::breakfast, "", "oats", SortChoice::price};
+        assert(breakfastWithOats.matches(oatmeal));
+
+        // a criterion that is not picked is ignored, even if its value would not match
+        const UserChoices nothingPicked{false, false, false, Category::dinner, "zzz", "zzz", SortChoice::price};
+        assert(nothingPicked.matches(oatmeal));
+        assert(nothingPicked.matches(chicken));
+
+        // an empty text is rejected only for a picked criterion
+        assert(throwsInvalidArgument(true, false, ""));
+        assert(throwsInvalidArgument(false, true, ""));
+        assert(!throwsInvalidArgument(false, false, ""));
+
+        // ascending by the user's sort choice; equal recipes do not come before each other
+        // (oatmeal: 549 kcal, 3.97 lei; chicken: 330 kcal, 6.80 lei)
+        const UserChoices byCalories{false, false, false, Category::breakfast, "", "", SortChoice::calories};
+        assert(byCalories.comesBefore(chicken, oatmeal));
+        assert(!byCalories.comesBefore(oatmeal, chicken));
+        assert(!byCalories.comesBefore(oatmeal, oatmeal));
+        assert(nothingPicked.comesBefore(oatmeal, chicken));
+        assert(!nothingPicked.comesBefore(chicken, oatmeal));
+        assert(!nothingPicked.comesBefore(oatmeal, oatmeal));
+    }
+
+    std::string namesOf(const std::vector<Recipe>& recipes) {
+        std::string names;
+        for (const Recipe& recipe : recipes) {
+            names += recipe.getName() + ";";
+        }
+        return names;
+    }
+
+    void testSearch() {
+        const Recipes catalog = smallCatalog();
+        // water 0 kcal 0 lei, boiled_eggs 210 kcal 3.60 lei, plain_chicken 330 kcal 6.80 lei,
+        // oatmeal_banana 549 kcal 3.97 lei
+
+        const UserChoices allByPrice{false, false, false, Category::breakfast, "", "", SortChoice::price};
+        const std::string byPrice = namesOf(catalog.searchUserChoices(allByPrice));
+        assert(byPrice == "water;boiled_eggs;oatmeal_banana;plain_chicken;");
+
+        const UserChoices allByCalories{false, false, false, Category::breakfast, "", "", SortChoice::calories};
+        const std::string byCalories = namesOf(catalog.searchUserChoices(allByCalories));
+        assert(byCalories == "water;boiled_eggs;plain_chicken;oatmeal_banana;");
+
+        // only the matching recipes, from every category
+        const UserChoices withE{false, false, true, Category::breakfast, "", "e", SortChoice::price};
+        const std::string matchingE = namesOf(catalog.searchUserChoices(withE));
+        assert(matchingE == "boiled_eggs;plain_chicken;" && "eggs and chicken_breast contain 'e'");
+
+        // nothing matches → empty result
+        const UserChoices noMatch{false, true, false, Category::breakfast, "pizza", "", SortChoice::price};
+        const std::vector<Recipe> none = catalog.searchUserChoices(noMatch);
+        assert(none.empty());
+
+        // the results are copies: the catalog's own recipes stay where they are
+        const std::vector<Recipe> breakfasts = catalog.searchUserChoices(
+            UserChoices{true, false, false, Category::breakfast, "", "", SortChoice::price});
+        const std::vector<Recipe>& originals = catalog.getRecipesFromCategory(Category::breakfast);
+        assert(breakfasts.size() == 2);
+        assert(&breakfasts[0] != &originals[0] && &breakfasts[0] != &originals[1]);
+    }
+
+    void testSearchKeepsOrderOnTies() {
+        // two lunches with the same price: stable sort keeps them in catalog order
+        const std::map<std::string, double> prices{{"rice", 1.00}};
+        const std::vector<RecipeRow> recipeRows{
+            {"rice_one", "lunch", Nutrition{500, 10, 100, 1, 0}},
+            {"rice_two", "lunch", Nutrition{400, 10, 80, 1, 0}},
+        };
+        const std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe{
+            {"rice_one", {{"rice", 100, "g"}}},
+            {"rice_two", {{"rice", 100, "g"}}},
+        };
+        const Recipes catalog{prices, recipeRows, ingredientsByRecipe};
+        const UserChoices byPrice{false, true, false, Category::lunch, "rice", "", SortChoice::price};
+        const std::string names = namesOf(catalog.searchUserChoices(byPrice));
+        assert(names == "rice_one;rice_two;");
+    }
+
+    std::string readerResult(const std::string& input) {
+        try {
+            const auto [category, name, ingredient] = reader(input);
+            return std::string(category ? "c" : "-") + (name ? "n" : "-") + (ingredient ? "i" : "-");
+        } catch (const std::invalid_argument&) {
+            return "throws";
+        }
+    }
+
+    void testReader() {
+        const std::string twoCriteria = readerResult("category,name");
+        const std::string oneCriterion = readerResult("ingredient");
+        const std::string allCriteria = readerResult("name,ingredient,category");
+        const std::string repeated = readerResult("name,name");
+        const std::string misspelled = readerResult("categry");
+        const std::string withSpace = readerResult("category, name");
+        const std::string empty = readerResult("");
+        const std::string onlyComma = readerResult(",");
+
+        assert(twoCriteria == "cn-");
+        assert(oneCriterion == "--i");
+        assert(allCriteria == "cni");
+        assert(repeated == "-n-");
+        assert(misspelled == "throws");
+        assert(withSpace == "throws" && "no spaces allowed (round 64)");
+        assert(empty == "throws");
+        assert(onlyComma == "throws");
+    }
 }
 
 // checked through the public interface only
@@ -717,6 +886,12 @@ int main() {
     testMealPlanBudget();
     testMealPlanFails();
     testMealPlanScaling();
+    testRecipeQuestions();
+    testPrintShort();
+    testUserChoices();
+    testSearch();
+    testSearchKeepsOrderOnTies();
+    testReader();
 
     return 0;
 }

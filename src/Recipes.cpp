@@ -4,6 +4,8 @@
 
 #include "Recipes.h"
 #include <stdexcept>
+#include <algorithm>
+#include <sstream>
 
 const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) const {
     switch (category) {
@@ -58,4 +60,55 @@ std::ostream& operator<<(std::ostream& os, const Recipes& recipes) {
         os << rec << '\n';
     }
     return os;
+}
+
+
+std::vector<Recipe> Recipes::searchUserChoices(const UserChoices& choices) const {
+    std::vector<Recipe> results;
+    for (const Recipe& rec: breakfasts) {
+        if (choices.matches(rec)) {
+            results.push_back(rec);
+        }
+    }
+    for (const Recipe& rec: lunches) {
+        if (choices.matches(rec)) {
+            results.push_back(rec);
+        }
+    }
+    for (const Recipe& rec: dinners) {
+        if (choices.matches(rec)) {
+            results.push_back(rec);
+        }
+    }
+
+    std::stable_sort(results.begin(), results.end(),[&choices](const Recipe& a, const Recipe& b) {
+                         return choices.comesBefore(a, b);
+                     });
+
+    return results;
+}
+
+std::tuple<bool, bool, bool> reader(const std::string& input) {
+    bool category = false;
+    bool name = false;
+    bool ingredient = false;
+
+    std::stringstream stream(input);   // read the text piece by piece
+    std::string word;
+    while (std::getline(stream, word, ',')) {   // reads up to the next comma, into word
+        if (word == "category") {
+            category = true;
+        } else if (word == "name") {
+            name = true;
+        } else if (word == "ingredient") {
+            ingredient = true;
+        } else {
+            throw std::invalid_argument("Invalid input: " + word);
+        }
+    }
+    if (!category && !name && !ingredient) {
+        throw std::invalid_argument("No valid input provided");
+    }
+
+    return {category, name, ingredient};
 }

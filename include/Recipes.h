@@ -12,6 +12,7 @@
 #include <vector>
 #include "Nutrition.h"
 #include "Recipe.h"
+#include "UserChoices.h"
 
 // one row of recipes.csv: name, category text, nutrition per serving
 using RecipeRow = std::tuple<std::string, std::string, Nutrition>;
@@ -28,6 +29,10 @@ public:
             const std::vector<RecipeRow>& recipeRows,
             const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe);
     const std::vector<Recipe>& getRecipesFromCategory(Category category) const;
+    std::vector<Recipe> searchUserChoices(const UserChoices& choices) const;
     friend std::ostream& operator<<(std::ostream& os, const Recipes& recipes);
 };
+
+std::tuple<bool, bool, bool> reader(const std::string& input);
+
 #endif //OOP_RECIPES_H

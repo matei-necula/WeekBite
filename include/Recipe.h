@@ -42,6 +42,14 @@ public:
 
     const std::string& getName() const;
 
+    bool questionCategory(Category searchedCategory) const;
+
+    bool questionName(const std::string& text) const;
+
+    bool questionIngredient(const std::string& ingredient) const;
+
+    void printShort(std::ostream& os) const;
+
     Recipe scaled(int newServings) const; // returns a scaled copy so the recipe in the catalog stays unchanged
     friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
 };

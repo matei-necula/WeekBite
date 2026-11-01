@@ -121,3 +121,26 @@ const Nutrition& Recipe::getNutrition() const {
 const std::string& Recipe::getName() const {
     return name;
 }
+
+bool Recipe::questionCategory(Category searchedCategory) const {
+    return (category == searchedCategory);
+    }
+
+bool Recipe::questionName(const std::string& text) const {
+    return (this->name.find(text) != std::string::npos);
+    // return true if this recipe's name member contains it}
+} 
+bool Recipe::questionIngredient(const std::string& ingredient) const {
+    for (const Ingredient& ing : ingredients) {
+        if (ing.getName().find(ingredient) != std::string::npos)
+            return true;
+    }
+    return false;
+}
+
+void Recipe::printShort(std::ostream& os) const {
+    const std::streamsize oldPrecision = os.precision();
+    os << std::setprecision(2) << std::fixed << "Name: " << name << ", kcal: " << nutrition.getCalories() << ", price: " << recipePrice() << " lei\n";
+    os << std::defaultfloat;
+    os.precision(oldPrecision);
+    }
