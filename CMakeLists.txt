@@ -98,12 +98,6 @@ target_include_directories(${MAIN_LIBRARY_NAME} PRIVATE
 # a public dep is an interface commitment, shared by app/ and tests/
 target_include_directories(${MAIN_LIBRARY_NAME} SYSTEM PUBLIC
     ${EXT_PUBLIC_DIR}/csv-parser
-    ${EXT_PUBLIC_DIR}/date
-)
-target_include_directories(${MAIN_LIBRARY_NAME} SYSTEM PRIVATE
-    ${EXT_PRIVATE_DIR}/digestpp
-    ${EXT_PRIVATE_DIR}/rlutil
-    ${EXT_PRIVATE_DIR}/random
 )
 
 # target_include_directories(${MAIN_EXECUTABLE_NAME} SYSTEM PRIVATE ${<SomeLib>_SOURCE_DIR}/include)
