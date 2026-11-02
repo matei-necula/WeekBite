@@ -1,6 +1,14 @@
 # WeekBite
 
-WeekBite is a weekly meal planner. Using recipes, ingredients and prices read from CSV files, it builds a 7-day plan (breakfast, lunch, dinner) that stays within a weekly budget, aims for a daily calorie target and never repeats a recipe in the same week. For the plan it shows the price and nutrition of every day and the total cost of the week, and it can scale the whole plan to any number of servings. Dietary restrictions (e.g. vegetarian, gluten-free) are planned for a later version.
+WeekBite is a weekly meal planner. It reads recipes, ingredients and prices from CSV files and, from a menu, lets you:
+
+- **plan a week**: a 7-day plan (breakfast, lunch, dinner) within a weekly budget, close to a daily calorie target, with no recipe repeated; it shows the price and nutrition of every day, week stats (average kcal per day, nutrition total, budget left, cheapest and most expensive day) and can scale the whole plan to any number of servings;
+- **get a shopping list** for the plan (or the scaled plan): every ingredient once with the amounts added up, a price per line and a total; ingredients you already have at home are subtracted, and the list can be sorted by price or name;
+- **search for a meal** by category, name and/or ingredient, sorted by calories or price, then pick one and scale it;
+- **see catalog stats** per category (number of recipes, average price and calories, cheapest and most expensive recipe);
+- **export** a plan, a recipe or a shopping list to a file.
+
+Dietary restrictions (e.g. vegetarian, excluded ingredients) are planned for a later version.
 
 ### Folosiți template-ul corespunzător grupei voastre!
 
@@ -55,8 +63,8 @@ O cerință nu se consideră îndeplinită dacă este realizată doar prin cod g
   - vor fi adăugate în fișierul `tastatura.txt` DOAR exemple de date de intrare de la tastatură (dacă există) pentru a acoperi cât mai multe cazuri; dacă aveți nevoie de date din fișiere, creați alte fișiere separat
 - [ ] minim 52-60% din codul propriu să fie C++, adică să aveți mai mult cod decât ce e inclus în template; testele nu se pun, nu vă luați după procentajul din interfața web; detalii la ore
 - [x] `.gitattributes` configurat corect (nu trebuie făcute modificări aici)
-- [ ] tag de `git`: de exemplu `v0.1`
-- [ ] serviciu de integrare continuă (CI) cu **toate bifele**; exemplu: GitHub Actions
+- [x] tag de `git`: de exemplu `v0.1`
+- [x] serviciu de integrare continuă (CI) cu **toate bifele**; exemplu: GitHub Actions
 - [ ] code review #1 2 proiecte
 
 ## Tema 2
