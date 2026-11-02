@@ -18,6 +18,8 @@ enum class Category {
     dinner
 };
 
+std::string categoryToText(Category category); // public so main can print the category names
+
 class Recipe {
     std::string name;
     Category category;

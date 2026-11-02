@@ -30,6 +30,10 @@ public:
             const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe);
     const std::vector<Recipe>& getRecipesFromCategory(Category category) const;
     std::vector<Recipe> searchUserChoices(const UserChoices& choices) const;
+    double averagePrice(Category category) const;
+    double averageKcal(Category category) const;
+    Recipe cheapestRecipe(Category category) const;
+    Recipe mostExpensiveRecipe(Category category) const;
     friend std::ostream& operator<<(std::ostream& os, const Recipes& recipes);
 };
 

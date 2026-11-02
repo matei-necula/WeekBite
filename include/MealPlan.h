@@ -26,6 +26,12 @@ public:
 
     MealPlan scaled(int newServings) const;
 
+    Nutrition weekNutritionTotal() const;
+    double averageKcalPerDay() const;
+    double budgetLeft() const;
+    int cheapestDay() const;
+    int mostExpensiveDay() const;
+
     void exportPlan(const std::string& fileName) const;// plan only
 
     void exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const;  // plan + scaled copy

@@ -56,4 +56,5 @@ rice
 n
 n
 x
+c
 q

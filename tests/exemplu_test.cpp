@@ -862,6 +862,138 @@ namespace {
         assert(empty == "throws");
         assert(onlyComma == "throws");
     }
+
+    // which Recipe a stats function returned, by name
+    std::string nameOf(const Recipe& recipe) {
+        return recipe.getName();
+    }
+
+    // true when the call throws std::invalid_argument
+    template <typename Call>
+    bool throwsInvalid(Call call) {
+        try {
+            call();
+        } catch (const std::invalid_argument&) {
+            return true;
+        }
+        return false;
+    }
+
+    void testCategoryToText() {
+        assert(categoryToText(Category::breakfast) == "breakfast");
+        assert(categoryToText(Category::lunch) == "lunch");
+        assert(categoryToText(Category::dinner) == "dinner");
+    }
+
+    void testMealPlanStats() {
+        // b/d cost 1 leu each; lunch prices differ. Lunch closest to 800 kcal first,
+        // so day 1 gets l7, day 2 l6, ..., day 7 l1
+        std::vector<PlanRow> rows = weekRows();
+        const double lunchPrices[] = {5, 2, 9, 2, 4, 7, 3}; // l1..l7
+        for (PlanRow& row : rows) {
+            const std::string& name = std::get<0>(row);
+            if (name.starts_with("l")) {
+                std::get<3>(row) = lunchPrices[name[1] - '1'];
+            }
+        }
+        // day prices: 5, 9, 6, 4, 11, 4, 7 = 46 lei
+        const MealPlan plan{700, 2000, catalogOf(rows)};
+        assert(plan.weekCompleted());
+
+        const double left = plan.budgetLeft();
+        assert(nearlyEqual(left, 654));
+
+        // all 21 recipes are served: 3080 + 5110 + 3430 = 11620 kcal
+        std::ostringstream out;
+        out << plan.weekNutritionTotal();
+        assert(out.str() == "Calories: 11620kcal, Protein: 0g, Carbohydrates: 0g, Fats: 0g, Sugar: 0g");
+        const double average = plan.averageKcalPerDay();
+        assert(nearlyEqual(average, 11620.0 / 7));
+
+        // day numbers count from 1; day 4 and day 6 both cost 4 → the first one
+        const int cheapest = plan.cheapestDay();
+        const int mostExpensive = plan.mostExpensiveDay();
+        assert(cheapest == 4);
+        assert(mostExpensive == 5);
+    }
+
+    void testMealPlanStatsTies() {
+        // every day costs 3 lei: the first day wins both ways
+        const MealPlan plan{70, 2000, catalogOf(weekRows())};
+        const int cheapest = plan.cheapestDay();
+        const int mostExpensive = plan.mostExpensiveDay();
+        assert(cheapest == 1);
+        assert(mostExpensive == 1);
+        const double left = plan.budgetLeft();
+        assert(nearlyEqual(left, 70 - 21));
+    }
+
+    void testMealPlanStatsFailedPlan() {
+        // main never asks a failed plan for stats; the functions still answer safely
+        const MealPlan poor{7, 2000, catalogOf(weekRows())};
+        assert(!poor.weekCompleted());
+        const double average = poor.averageKcalPerDay();
+        const double left = poor.budgetLeft();
+        const int cheapest = poor.cheapestDay();
+        const int mostExpensive = poor.mostExpensiveDay();
+        assert(nearlyEqual(average, 0));
+        assert(nearlyEqual(left, 7) && "nothing was spent");
+        assert(cheapest == 0);
+        assert(mostExpensive == 0);
+    }
+
+    void testRecipesStats() {
+        // breakfasts: oatmeal_banana 3.97 lei / 549 kcal, boiled_eggs 3.60 lei / 210 kcal
+        const Recipes catalog = smallCatalog();
+        const double breakfastPrice = catalog.averagePrice(Category::breakfast);
+        const double breakfastKcal = catalog.averageKcal(Category::breakfast);
+        assert(nearlyEqual(breakfastPrice, (3.97 + 3.60) / 2));
+        assert(nearlyEqual(breakfastKcal, (549.0 + 210.0) / 2));
+
+        const std::string cheapest = nameOf(catalog.cheapestRecipe(Category::breakfast));
+        const std::string mostExpensive = nameOf(catalog.mostExpensiveRecipe(Category::breakfast));
+        assert(cheapest == "boiled_eggs");
+        assert(mostExpensive == "oatmeal_banana");
+
+        // a category with one recipe: it is the average, the cheapest and the most expensive
+        const double lunchPrice = catalog.averagePrice(Category::lunch);
+        const double lunchKcal = catalog.averageKcal(Category::lunch);
+        const std::string onlyLunchLow = nameOf(catalog.cheapestRecipe(Category::lunch));
+        const std::string onlyLunchHigh = nameOf(catalog.mostExpensiveRecipe(Category::lunch));
+        assert(nearlyEqual(lunchPrice, 6.80));
+        assert(nearlyEqual(lunchKcal, 330));
+        assert(onlyLunchLow == "plain_chicken");
+        assert(onlyLunchHigh == "plain_chicken");
+
+        // the result is a copy: scaling it leaves the catalog alone
+        const Recipe copy = catalog.cheapestRecipe(Category::breakfast).scaled(3);
+        const double catalogPrice = catalog.getRecipesFromCategory(Category::breakfast)[1].recipePrice();
+        assert(nearlyEqual(copy.recipePrice(), 3 * 3.60));
+        assert(nearlyEqual(catalogPrice, 3.60));
+    }
+
+    void testRecipesStatsTies() {
+        // same price: the first one in the catalog wins both ways
+        const Recipes catalog = catalogOf({{"first", "dinner", 300.5, 2}, {"second", "dinner", 500, 2}});
+        const std::string cheapest = nameOf(catalog.cheapestRecipe(Category::dinner));
+        const std::string mostExpensive = nameOf(catalog.mostExpensiveRecipe(Category::dinner));
+        const double average = catalog.averageKcal(Category::dinner);
+        assert(cheapest == "first");
+        assert(mostExpensive == "first");
+        assert(nearlyEqual(average, 400.25) && "decimals kept: the sum starts at 0.0");
+    }
+
+    void testRecipesStatsEmptyCategory() {
+        const Recipes empty{{}, {}, {}};
+        const bool price = throwsInvalid([&empty] { (void) empty.averagePrice(Category::lunch); });
+        const bool kcal = throwsInvalid([&empty] { (void) empty.averageKcal(Category::lunch); });
+        const bool cheapest = throwsInvalid([&empty] { (void) empty.cheapestRecipe(Category::lunch); });
+        const bool mostExpensive = throwsInvalid([&empty] { (void) empty.mostExpensiveRecipe(Category::lunch); });
+        assert(price);
+        assert(kcal);
+        assert(cheapest);
+        assert(mostExpensive);
+    }
 }
 
 // checked through the public interface only
@@ -892,6 +1024,13 @@ int main() {
     testSearch();
     testSearchKeepsOrderOnTies();
     testReader();
+    testCategoryToText();
+    testMealPlanStats();
+    testMealPlanStatsTies();
+    testMealPlanStatsFailedPlan();
+    testRecipesStats();
+    testRecipesStatsTies();
+    testRecipesStatsEmptyCategory();
 
     return 0;
 }

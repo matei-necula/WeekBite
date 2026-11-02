@@ -6,6 +6,7 @@
 #include <csv.hpp>
 #include "MealPlan.h"
 #include "Recipes.h"
+#include <iomanip>
 
 std::string exportQuestion() {
     std::cout << "Export to a file? (y/n): ";
@@ -63,11 +64,10 @@ int main() {
         std::cout << catalog;
     }
 
-
     while (true) {
         try {
             char choice = 'q';
-            std::cout << "Plan a week (p), search a meal (s) or quit (q): ";
+            std::cout << "Plan a week (p), search a meal (s), catalog stats (c) or quit (q): ";
             if (!(std::cin >> choice) || choice == 'q') {
                 break;
             }
@@ -89,6 +89,17 @@ int main() {
                 const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog};
                 std::cout << newPlan;
                 if (!newPlan.weekCompleted()) continue;
+
+                const std::streamsize oldPrecision = std::cout.precision();
+                std::cout << std::fixed << std::setprecision(2);
+                std::cout << "Average kcal per day: " << newPlan.averageKcalPerDay()
+                          << " kcal (target: " << caloriesPerDay << " kcal)\n";
+                std::cout << "Week nutrition total:\n" << newPlan.weekNutritionTotal() << '\n';
+                std::cout << "Budget left: " << newPlan.budgetLeft() << " lei\n";
+                std::cout << "Cheapest day: Day " << newPlan.cheapestDay() << '\n';
+                std::cout << "Most expensive day: Day " << newPlan.mostExpensiveDay() << '\n';
+                std::cout << std::defaultfloat;
+                std::cout.precision(oldPrecision);
 
                 std::cout << "Scale the servings? (y/n): ";
                 char answer = 'n';
@@ -217,8 +228,31 @@ int main() {
                     }
                 }
 
-            } else {
-                std::cout << "Invalid choice. Type p, s or q." << std::endl;
+            } else if (choice == 'c') {
+                const std::vector<Category> categories = {
+                    Category::breakfast,
+                    Category::lunch,
+                    Category::dinner
+                };
+
+                const std::streamsize oldPrecision = std::cout.precision();
+                for (Category cat : categories) {
+                    const auto& list = catalog.getRecipesFromCategory(cat);
+                    std::cout << categoryToText(cat) << " (" << list.size() << " recipes):\n";
+                    std::cout << std::fixed << std::setprecision(2);
+                    std::cout << "Average price: " << catalog.averagePrice(cat) << " lei\n";
+                    std::cout << "Average calories: " << catalog.averageKcal(cat) << " kcal\n";
+                    std::cout << std::defaultfloat;
+                    std::cout << "Cheapest: ";
+                    catalog.cheapestRecipe(cat).printShort(std::cout);
+                    std::cout << "Most expensive: ";
+                    catalog.mostExpensiveRecipe(cat).printShort(std::cout);
+                    std::cout << '\n';
+                }
+                std::cout.precision(oldPrecision);
+            }
+            else {
+                std::cout << "Invalid choice. Type p, s, c or q." << std::endl;
             }
         } catch (const std::runtime_error& e) {
             std::cout << e.what() << '\n';

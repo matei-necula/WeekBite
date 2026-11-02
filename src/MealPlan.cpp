@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <fstream>
+#include <numeric>
 
 #include "fileHelper.h"
 
@@ -131,4 +132,46 @@ void MealPlan::exportPlan(const std::string& fileName) const {
 void MealPlan::exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const {
     std::ofstream file = openFile(fileName);
     file << *this << "\n\nScaled plan:\n" << scaledPlan;
+}
+
+Nutrition MealPlan::weekNutritionTotal() const {
+    Nutrition total{0.0, 0.0, 0.0, 0.0, 0.0};
+    for (const auto& day: days) {
+        total += day.dayNutrition();
+    }
+    return total;
+}
+
+double MealPlan::averageKcalPerDay() const {
+    if (days.empty()) {
+        return 0.0;
+    }
+    return weekNutritionTotal().getCalories() / static_cast<double>(days.size());
+}
+
+double MealPlan::budgetLeft() const {
+    double spent = std::accumulate(days.begin(), days.end(), 0.0, [](double sum, const DayMeals& day) {
+        return sum + day.dayPrice();
+    });
+    return weeklyBudget - spent;
+}
+
+int MealPlan::cheapestDay() const {
+    if (days.empty()) {
+        return 0;
+    }
+    auto it = std::min_element(days.begin(), days.end(), [](const DayMeals& a, const DayMeals& b) {
+        return a.dayPrice() < b.dayPrice();
+    });
+    return static_cast<int>(it - days.begin()) + 1;
+}
+
+int MealPlan::mostExpensiveDay() const {
+    if (days.empty()) {
+        return 0;
+    }
+    auto it = std::max_element(days.begin(), days.end(), [](const DayMeals& a, const DayMeals& b) {
+        return a.dayPrice() < b.dayPrice();
+    });
+    return static_cast<int>(it - days.begin()) + 1;
 }

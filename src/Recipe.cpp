@@ -18,18 +18,18 @@ namespace {
             return Category::dinner;
         throw std::invalid_argument("Invalid category text: " + categoryText);
     }
+}
 
-    std::string categoryToText(Category category) {
-        switch (category) {
-            case Category::breakfast:
-                return "breakfast";
-            case Category::lunch:
-                return "lunch";
-            case Category::dinner:
-                return "dinner";
-        }
-        throw std::invalid_argument("Invalid category");
+std::string categoryToText(Category category) {
+    switch (category) {
+        case Category::breakfast:
+            return "breakfast";
+        case Category::lunch:
+            return "lunch";
+        case Category::dinner:
+            return "dinner";
     }
+    throw std::invalid_argument("Invalid category");
 }
 
 Recipe::Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients,

@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <numeric>
 
 const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) const {
     switch (category) {
@@ -111,4 +112,48 @@ std::tuple<bool, bool, bool> reader(const std::string& input) {
     }
 
     return {category, name, ingredient};
+}
+
+double Recipes::averagePrice(Category category) const {
+    const auto& list = getRecipesFromCategory(category);
+    if (list.empty()) {
+        throw std::invalid_argument("Cannot calculate average price for empty category");
+    }
+    double total = std::accumulate(list.begin(), list.end(), 0.0, [](double sum, const Recipe& r) {
+        return sum + r.recipePrice();
+    });
+    return total / static_cast<double>(list.size());
+}
+
+double Recipes::averageKcal(Category category) const {
+    const auto& list = getRecipesFromCategory(category);
+    if (list.empty()) {
+        throw std::invalid_argument("Cannot calculate average calories for empty category");
+    }
+    double total = std::accumulate(list.begin(), list.end(), 0.0, [](double sum, const Recipe& r) {
+        return sum + r.getNutrition().getCalories();
+    });
+    return total / static_cast<double>(list.size());
+}
+
+Recipe Recipes::cheapestRecipe(Category category) const {
+    const auto& list = getRecipesFromCategory(category);
+    if (list.empty()) {
+        throw std::invalid_argument("Cannot find cheapest recipe in empty category");
+    }
+    auto it = std::min_element(list.begin(), list.end(), [](const Recipe& a, const Recipe& b) {
+        return a.recipePrice() < b.recipePrice();
+    });
+    return *it;
+}
+
+Recipe Recipes::mostExpensiveRecipe(Category category) const {
+    const auto& list = getRecipesFromCategory(category);
+    if (list.empty()) {
+        throw std::invalid_argument("Cannot find most expensive recipe in empty category");
+    }
+    auto it = std::max_element(list.begin(), list.end(), [](const Recipe& a, const Recipe& b) {
+        return a.recipePrice() < b.recipePrice();
+    });
+    return *it;
 }
