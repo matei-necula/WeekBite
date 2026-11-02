@@ -6,6 +6,8 @@
 // Keep the checks on in every build type.
 #undef NDEBUG
 #include <cassert>
+#include <cstdio>
+#include <fstream>
 #include <cmath>
 #include <sstream>
 #include <string>
@@ -19,6 +21,7 @@
 #include "Nutrition.h"
 #include "Recipe.h"
 #include "Recipes.h"
+#include "ShoppingList.h"
 #include "UserChoices.h"
 
 namespace {
@@ -994,6 +997,137 @@ namespace {
         assert(cheapest);
         assert(mostExpensive);
     }
+
+    void testIngredientAdd() {
+        Ingredient oats{1.50, "oats", "g", 80};
+        oats += Ingredient{1.50, "oats", "g", 50};
+        assert(printed(oats) == "oats (130 - g) (1.95 lei)");
+
+        // += hands back the ingredient itself
+        const Ingredient& same = (oats += Ingredient{1.50, "oats", "g", 20});
+        assert(&same == &oats);
+        assert(printed(oats) == "oats (150 - g) (2.25 lei)");
+
+        // another name or another unit is refused, and the ingredient stays as it was
+        const bool otherName = throwsInvalid([&oats] { oats += Ingredient{0.80, "milk", "g", 100}; });
+        const bool otherUnit = throwsInvalid([&oats] { oats += Ingredient{1.50, "oats", "pieces", 1}; });
+        assert(otherName);
+        assert(otherUnit);
+        assert(printed(oats) == "oats (150 - g) (2.25 lei)");
+    }
+
+    // the names of some ingredients, in order, separated by spaces
+    std::string ingredientNames(const std::vector<Ingredient>& ingredients) {
+        std::string names;
+        for (const Ingredient& ingredient : ingredients) {
+            names += (names.empty() ? "" : " ") + ingredient.getName();
+        }
+        return names;
+    }
+
+    void testGiveIngredients() {
+        // a recipe: its own list, in order
+        const Recipe oatmeal = oatmealBanana();
+        assert(ingredientNames(oatmeal.giveIngredients()) == "oats milk banana cinnamon");
+
+        // a day: breakfast, then lunch, then dinner, nothing merged yet
+        const DayMeals day{oatmealBanana(), plainChicken(), spicedChicken()};
+        const std::vector<Ingredient> dayList = day.giveIngredients();
+        assert(ingredientNames(dayList) == "oats milk banana cinnamon chicken_breast chicken_breast salt");
+
+        // a week: all 7 days, day 1 first (each catalogOf recipe has one ingredient "<name>_ing")
+        const MealPlan plan{70, 2000, catalogOf(weekRows())};
+        const std::vector<Ingredient> week = plan.giveIngredients();
+        assert(week.size() == 21);
+        const std::vector<Ingredient> dayOne(week.begin(), week.begin() + 3);
+        assert(ingredientNames(dayOne) == "b7_ing l7_ing d7_ing");
+        const std::vector<Ingredient> dayTwo(week.begin() + 3, week.begin() + 6);
+        assert(ingredientNames(dayTwo) == "b6_ing l6_ing d6_ing");
+
+        // a failed plan has no days, so no ingredients
+        const MealPlan poor{7, 2000, catalogOf(weekRows())};
+        const std::vector<Ingredient> none = poor.giveIngredients();
+        assert(none.empty());
+    }
+
+    std::string printed(const ShoppingList& list) {
+        std::ostringstream out;
+        out << list;
+        return out.str();
+    }
+
+    void testShoppingListMerge() {
+        // the same name → one line with the amounts added up, in the order first seen
+        const std::vector<Ingredient> all{
+            Ingredient{1.50, "oats", "g", 80},
+            Ingredient{0.80, "milk", "ml", 200},
+            Ingredient{1.50, "oats", "g", 50},
+            Ingredient{0, "cinnamon", "tsp", 0.5},
+            Ingredient{0.80, "milk", "ml", 100},
+            Ingredient{0, "cinnamon", "tsp", 1},
+        };
+        const ShoppingList list{all};
+        // tbsp/tsp have no price, so they add nothing to the total
+        assert(printed(list) == "oats (130 - g) (1.95 lei)\n"
+                                "milk (300 - ml) (2.40 lei)\n"
+                                "cinnamon (1.5 - tsp)\n"
+                                "Total: 4.35 lei\n");
+
+        // only the total gets 2 decimals; the stream is given back as it was
+        std::ostringstream out;
+        out << list << 1234.5678;
+        assert(out.str().ends_with("Total: 4.35 lei\n1234.57"));
+
+        const ShoppingList empty{std::vector<Ingredient>{}};
+        assert(printed(empty) == "Total: 0.00 lei\n");
+    }
+
+    void testShoppingListFromPlan() {
+        // one day: chicken_breast is in lunch and dinner → one line, 400 g; total = the day's price
+        const DayMeals day{oatmealBanana(), plainChicken(), spicedChicken()};
+        const ShoppingList dayList{day.giveIngredients()};
+        assert(printed(dayList) == "oats (80 - g) (1.20 lei)\n"
+                                   "milk (200 - ml) (1.60 lei)\n"
+                                   "banana (1 - pieces) (1.17 lei)\n"
+                                   "cinnamon (0.5 - tsp)\n"
+                                   "chicken_breast (400 - g) (13.60 lei)\n"
+                                   "salt (0.5 - tsp)\n"
+                                   "Total: 17.57 lei\n");
+
+        // a week of 21 different recipes at 1 leu each: 21 lines, total = the week's money spent
+        const MealPlan plan{70, 2000, catalogOf(weekRows())};
+        const std::string week = printed(ShoppingList{plan.giveIngredients()});
+        assert(countOf(week, "\n") == 22);
+        assert(week.starts_with("b7_ing (1 - pieces) (1.00 lei)\n"));
+        assert(week.ends_with("Total: 21.00 lei\n"));
+
+        // the scaled plan's list: every amount and the total × 3
+        const MealPlan scaledPlan = plan.scaled(3);
+        const std::string scaledWeek = printed(ShoppingList{scaledPlan.giveIngredients()});
+        assert(scaledWeek.starts_with("b7_ing (3 - pieces) (3.00 lei)\n"));
+        assert(scaledWeek.ends_with("Total: 63.00 lei\n"));
+    }
+
+    void testShoppingListExport() {
+        const ShoppingList list{{Ingredient{1.50, "oats", "g", 80}, Ingredient{1.50, "oats", "g", 20}}};
+        const std::string fileName = "shopping_list_test.txt";
+        list.exportList(fileName);
+        std::ifstream file{fileName};
+        std::stringstream content;
+        content << file.rdbuf();
+        file.close();
+        std::remove(fileName.c_str());
+        assert(content.str() == "oats (100 - g) (1.50 lei)\nTotal: 1.50 lei\n");
+
+        // a folder that does not exist: openFile throws std::runtime_error
+        bool threw = false;
+        try {
+            list.exportList("no_such_folder/list.txt");
+        } catch (const std::runtime_error&) {
+            threw = true;
+        }
+        assert(threw);
+    }
 }
 
 // checked through the public interface only
@@ -1031,6 +1165,11 @@ int main() {
     testRecipesStats();
     testRecipesStatsTies();
     testRecipesStatsEmptyCategory();
+    testIngredientAdd();
+    testGiveIngredients();
+    testShoppingListMerge();
+    testShoppingListFromPlan();
+    testShoppingListExport();
 
     return 0;
 }

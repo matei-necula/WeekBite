@@ -175,3 +175,12 @@ int MealPlan::mostExpensiveDay() const {
     });
     return static_cast<int>(it - days.begin()) + 1;
 }
+
+std::vector<Ingredient> MealPlan::giveIngredients() const {
+    std::vector<Ingredient> result;
+    for (const DayMeals& day: days) {
+        const std::vector<Ingredient> dayList = day.giveIngredients();
+        result.insert(result.end(), dayList.begin(), dayList.end());
+    }
+    return result;
+}

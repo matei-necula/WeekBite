@@ -36,6 +36,8 @@ public:
 
     void exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const;  // plan + scaled copy
 
+    std::vector<Ingredient> giveIngredients() const;
+
     friend std::ostream& operator<<(std::ostream& os, const MealPlan& plan);
 };
 

@@ -29,6 +29,14 @@ DayMeals DayMeals::scaled(int newServings) const {
     return scaledDay;
 }
 
+std::vector<Ingredient> DayMeals::giveIngredients() const {
+    std::vector<Ingredient> result;
+    result.insert(result.end(), breakfast.giveIngredients().begin(), breakfast.giveIngredients().end());
+    result.insert(result.end(), lunch.giveIngredients().begin(), lunch.giveIngredients().end());
+    result.insert(result.end(), dinner.giveIngredients().begin(), dinner.giveIngredients().end());
+    return result;
+}
+
 std::ostream& operator<<(std::ostream& os, const DayMeals& day) {
     os << day.breakfast << "\n" << day.lunch << "\n" << day.dinner << "\n";
     const std::streamsize oldPrecision = os.precision();

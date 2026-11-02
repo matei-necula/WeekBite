@@ -88,3 +88,10 @@ void Ingredient::scale(int factor) {
  const std::string& Ingredient::getName() const {
     return name;
 }
+
+Ingredient& Ingredient::operator+=(const Ingredient& other) {
+    if (name != other.name || unit != other.unit)
+        throw std::invalid_argument("Cannot add ingredients with different names or units");
+    amount += other.amount;
+    return *this;
+}

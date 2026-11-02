@@ -24,6 +24,7 @@ public:
     void scale(int factor); // changes this ingredient; Recipe::scaled() calls it on its own copy
     // only getter: Recipe needs the name for the "price may vary" note (chosen over friend class Recipe)
     const std::string& getName() const;
+    Ingredient& operator+=(const Ingredient& other);
 };
 
 

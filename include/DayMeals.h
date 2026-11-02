@@ -23,6 +23,8 @@ public:
 
     DayMeals scaled(int newServings) const;
 
+    std::vector<Ingredient> giveIngredients() const;
+
     friend std::ostream& operator<<(std::ostream& os, const DayMeals& day);
 };
 

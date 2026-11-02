@@ -155,3 +155,7 @@ void Recipe::exportRecipeAndScaled(const std::string& fileName, const Recipe& sc
     std::ofstream file = openFile(fileName);
     file << *this << "\n\nScaled recipe:\n" << scaledRecipe;
 }
+
+const std::vector<Ingredient>& Recipe::giveIngredients() const {
+    return ingredients;
+}

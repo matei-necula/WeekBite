@@ -57,6 +57,8 @@ public:
     void exportRecipe(const std::string& fileName) const;// recipe only
     void exportRecipeAndScaled(const std::string& fileName, const Recipe& scaledRecipe) const;  // recipe + scaled copy
 
+    const std::vector<Ingredient>& giveIngredients() const;
+
     friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
 };
 

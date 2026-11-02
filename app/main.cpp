@@ -7,6 +7,7 @@
 #include "MealPlan.h"
 #include "Recipes.h"
 #include <iomanip>
+#include "ShoppingList.h"
 
 std::string exportQuestion() {
     std::cout << "Export to a file? (y/n): ";
@@ -19,6 +20,22 @@ std::string exportQuestion() {
     std::string fileName;
     std::cin >> fileName;
     return fileName;
+}
+
+void shoppingListQuestion(const MealPlan& plan) {
+    std::cout << "Show the shopping list? (y/n): ";
+    char answer = 'n';
+    std::cin >> answer;
+    if (answer != 'y') {
+        return;
+    }
+    auto ingredients = plan.giveIngredients();
+    ShoppingList list{ingredients};
+    std::cout << list;
+    const std::string fileName = exportQuestion();
+    if (!fileName.empty()) {
+        list.exportList(fileName);
+    }
 }
 
 int main() {
@@ -100,6 +117,7 @@ int main() {
                 std::cout << "Most expensive day: Day " << newPlan.mostExpensiveDay() << '\n';
                 std::cout << std::defaultfloat;
                 std::cout.precision(oldPrecision);
+                shoppingListQuestion(newPlan);
 
                 std::cout << "Scale the servings? (y/n): ";
                 char answer = 'n';
@@ -113,6 +131,7 @@ int main() {
                     }
                     const MealPlan scaledPlan = newPlan.scaled(servings);
                     std::cout << scaledPlan;
+                    shoppingListQuestion(scaledPlan);
                     const std::string fileName = exportQuestion();
                     if (!fileName.empty()) {
                         newPlan.exportPlanAndScaled(fileName, scaledPlan);
