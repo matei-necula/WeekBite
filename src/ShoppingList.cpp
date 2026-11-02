@@ -7,6 +7,8 @@
 #include <algorithm>   // std::find_if
 #include <iomanip>     // std::setprecision
 #include <numeric>     // std::accumulate
+#include <sstream>
+#include <stdexcept>
 
 ShoppingList::ShoppingList(const std::vector<Ingredient>& allIngredients) {
     for (const Ingredient& item : allIngredients) {
@@ -18,8 +20,39 @@ ShoppingList::ShoppingList(const std::vector<Ingredient>& allIngredients) {
             ingredients.push_back(item);
         }
     }
+    computeTotal();
+}
+
+void ShoppingList::computeTotal() {
     total = std::accumulate(ingredients.begin(), ingredients.end(), 0.0,
                 [](double sum, const Ingredient& x) { return sum + x.recipePrice(); });
+}
+
+void ShoppingList::subtractPantry(const std::vector<Ingredient>& pantry) {
+    std::vector<Ingredient> left = ingredients;
+    for (const Ingredient& item : pantry) {
+        auto it = std::find_if(left.begin(), left.end(),
+                         [&item](const Ingredient& x) { return x.getName() == item.getName(); });
+        if (it != left.end()) {
+            *it -= item;
+        }
+    }
+    left.erase(std::remove_if(left.begin(), left.end(),
+                   [](const Ingredient& x) { return x.isEmpty(); }), left.end());
+    ingredients = left;
+    computeTotal();
+}
+
+void ShoppingList::sortBy(ListSort sortChoice) {
+    if (sortChoice == ListSort::price) {
+        std::stable_sort(ingredients.begin(), ingredients.end(), [](const Ingredient& a, const Ingredient& b) {
+            return a.recipePrice() > b.recipePrice();
+        });
+    } else {
+        std::stable_sort(ingredients.begin(), ingredients.end(), [](const Ingredient& a, const Ingredient& b) {
+            return a.getName() < b.getName();
+        });
+    }
 }
 
 std::ostream& operator<<(std::ostream& os, const ShoppingList& list) {
@@ -38,4 +71,28 @@ std::ostream& operator<<(std::ostream& os, const ShoppingList& list) {
 void ShoppingList::exportList(const std::string& fileName) const {
     std::ofstream file = openFile(fileName);
     file << *this;
+}
+
+std::vector<Ingredient> pantryReader(const std::string& input) {
+    std::vector<Ingredient> pantry;
+    std::stringstream stream(input);
+    std::string piece;
+    while (std::getline(stream, piece, ',')) {
+        std::stringstream pieceStream(piece);
+        std::string name;
+        double amount = 0;
+        std::string unit;
+        std::string extra;
+        if (!(pieceStream >> name >> amount >> unit) || pieceStream >> extra) {
+            throw std::invalid_argument("Invalid item: " + piece);
+        }
+        if (amount <= 0) {
+            throw std::invalid_argument("Invalid amount: " + piece);
+        }
+        pantry.push_back(Ingredient(0, name, unit, amount));
+    }
+    if (pantry.empty()) {
+        throw std::invalid_argument("No items provided");
+    }
+    return pantry;
 }

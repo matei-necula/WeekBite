@@ -25,6 +25,8 @@ public:
     // only getter: Recipe needs the name for the "price may vary" note (chosen over friend class Recipe)
     const std::string& getName() const;
     Ingredient& operator+=(const Ingredient& other);
+    Ingredient& operator-=(const Ingredient& other);
+    bool isEmpty() const;
 };
 
 

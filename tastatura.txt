@@ -7,6 +7,12 @@ p
 2500
 y
 y
+potatoes 1000
+cheddar 1 pieces
+bacon -5 g
+potatoes 1000 g, bacon 30 g
+1
+y
 shopping.txt
 n
 y
@@ -19,8 +25,19 @@ y
 4
 y
 n
+2
+n
 y
 plan_scaled.txt
+p
+400
+3000
+y
+n
+0
+n
+n
+n
 s
 categry
 category,ingredient

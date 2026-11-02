@@ -22,6 +22,39 @@ std::string exportQuestion() {
     return fileName;
 }
 
+void pantryQuestion(ShoppingList& list) {
+    std::cout << "Do you have ingredients at home? (y/n): ";
+    char answer = 'n';
+    std::cin >> answer;
+    if (answer != 'y') {
+        return;
+    }
+    while (true) {
+        std::cout << "Type them as name amount unit, separated by commas (oats 200 g, milk 500 ml): ";
+        std::string line;
+        if (!std::getline(std::cin >> std::ws, line)) {
+            return;
+        }
+        try {
+            list.subtractPantry(pantryReader(line));
+            return;
+        } catch (const std::invalid_argument &e) {
+            std::cout << e.what() << '\n';
+        }
+    }
+}
+
+void sortQuestion(ShoppingList& list) {
+    std::cout << "Sort the list by price (1), name (2) or keep it as it is (0): ";
+    int sortNumber = 0;
+    std::cin >> sortNumber;
+    if (sortNumber == 1) {
+        list.sortBy(ListSort::price);
+    } else if (sortNumber == 2) {
+        list.sortBy(ListSort::name);
+    }
+}
+
 void shoppingListQuestion(const MealPlan& plan) {
     std::cout << "Show the shopping list? (y/n): ";
     char answer = 'n';
@@ -31,6 +64,8 @@ void shoppingListQuestion(const MealPlan& plan) {
     }
     auto ingredients = plan.giveIngredients();
     ShoppingList list{ingredients};
+    pantryQuestion(list);
+    sortQuestion(list);
     std::cout << list;
     const std::string fileName = exportQuestion();
     if (!fileName.empty()) {

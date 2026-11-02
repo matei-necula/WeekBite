@@ -1128,6 +1128,129 @@ namespace {
         }
         assert(threw);
     }
+
+    void testIngredientSubtract() {
+        Ingredient oats{1.50, "oats", "g", 150};
+        const Ingredient& same = (oats -= Ingredient{0, "oats", "g", 50});
+        assert(&same == &oats);
+        assert(printed(oats) == "oats (100 - g) (1.50 lei)");
+        assert(!oats.isEmpty());
+
+        // another unit is refused, and the ingredient stays as it was
+        const bool otherUnit = throwsInvalid([&oats] { oats -= Ingredient{0, "oats", "pieces", 1}; });
+        const bool otherName = throwsInvalid([&oats] { oats -= Ingredient{0, "milk", "g", 1}; });
+        assert(otherUnit);
+        assert(otherName);
+        assert(printed(oats) == "oats (100 - g) (1.50 lei)");
+
+        // more than needed at home: nothing left to buy, never a negative amount
+        oats -= Ingredient{0, "oats", "g", 300};
+        assert(oats.isEmpty());
+        assert(printed(oats) == "oats (0 - g) (0.00 lei)");
+
+        // exactly what is needed is also empty
+        Ingredient milk{0.80, "milk", "ml", 200};
+        milk -= Ingredient{0, "milk", "ml", 200};
+        assert(milk.isEmpty());
+    }
+
+    // the pantry items, one printed ingredient per line (pantry items have no price)
+    std::string pantryText(const std::string& input) {
+        std::string text;
+        for (const Ingredient& item : pantryReader(input)) {
+            text += printed(item) + "\n";
+        }
+        return text;
+    }
+
+    void testPantryReader() {
+        assert(pantryText("oats 200 g") == "oats (200 - g) (0.00 lei)\n");
+        assert(pantryText("oats 200 g, milk 500 ml,eggs 2 pieces") ==
+               "oats (200 - g) (0.00 lei)\nmilk (500 - ml) (0.00 lei)\neggs (2 - pieces) (0.00 lei)\n");
+
+        // every bad shape throws std::invalid_argument
+        const std::string bad[] = {
+            "",                       // nothing typed
+            "oats",                   // no amount
+            "oats 200",               // no unit
+            "oats g 200",             // amount is not a number
+            "oats 200 g extra",       // a word too many
+            "oats 0 g",               // amount must be > 0
+            "oats -5 g",
+            "oats 200 cups",          // unknown unit
+            "oats 200 g,,milk 1 ml",  // an empty item between commas
+        };
+        for (const std::string& input : bad) {
+            const bool threw = throwsInvalid([&input] { (void) pantryReader(input); });
+            assert(threw);
+        }
+    }
+
+    ShoppingList breakfastList() {
+        return ShoppingList{{
+            Ingredient{1.50, "oats", "g", 130},
+            Ingredient{0.80, "milk", "ml", 300},
+            Ingredient{0, "cinnamon", "tsp", 1.5},
+            Ingredient{1.17, "banana", "pieces", 2},
+        }};
+    }
+
+    void testShoppingListPantry() {
+        // oats: 200 g at home covers 130 g → gone; milk: 300 - 100 = 200 ml; total recomputed
+        ShoppingList list = breakfastList();
+        list.subtractPantry(pantryReader("milk 100 ml, oats 200 g"));
+        assert(printed(list) == "milk (200 - ml) (1.60 lei)\n"
+                                "cinnamon (1.5 - tsp)\n"
+                                "banana (2 - pieces) (2.34 lei)\n"
+                                "Total: 3.94 lei\n");
+
+        // something at home that is not on the list changes nothing
+        ShoppingList same = breakfastList();
+        same.subtractPantry(pantryReader("rice 500 g"));
+        assert(printed(same) == printed(breakfastList()));
+
+        // one bad item (banana in g) → refused, and the whole list stays as it was (oats is not touched either)
+        ShoppingList kept = breakfastList();
+        const bool threw = throwsInvalid([&kept] { kept.subtractPantry(pantryReader("oats 50 g, banana 100 g")); });
+        assert(threw);
+        assert(printed(kept) == printed(breakfastList()));
+
+        // everything at home → empty list
+        ShoppingList none = breakfastList();
+        none.subtractPantry(pantryReader("oats 130 g, milk 1000 ml, cinnamon 2 tsp, banana 2 pieces"));
+        assert(printed(none) == "Total: 0.00 lei\n");
+    }
+
+    void testShoppingListSort() {
+        // prices: oats 1.95, milk 2.40, cinnamon 0, banana 2.34
+        ShoppingList byPrice = breakfastList();
+        byPrice.sortBy(ListSort::price);
+        assert(printed(byPrice) == "milk (300 - ml) (2.40 lei)\n"
+                                   "banana (2 - pieces) (2.34 lei)\n"
+                                   "oats (130 - g) (1.95 lei)\n"
+                                   "cinnamon (1.5 - tsp)\n"
+                                   "Total: 6.69 lei\n");
+
+        ShoppingList byName = breakfastList();
+        byName.sortBy(ListSort::name);
+        assert(printed(byName) == "banana (2 - pieces) (2.34 lei)\n"
+                                  "cinnamon (1.5 - tsp)\n"
+                                  "milk (300 - ml) (2.40 lei)\n"
+                                  "oats (130 - g) (1.95 lei)\n"
+                                  "Total: 6.69 lei\n");
+
+        // same price → the order they had stays (stable sort)
+        ShoppingList ties{{
+            Ingredient{1.00, "b_item", "pieces", 1},
+            Ingredient{1.00, "a_item", "pieces", 1},
+            Ingredient{2.00, "c_item", "pieces", 1},
+        }};
+        ties.sortBy(ListSort::price);
+        assert(printed(ties) == "c_item (1 - pieces) (2.00 lei)\n"
+                                "b_item (1 - pieces) (1.00 lei)\n"
+                                "a_item (1 - pieces) (1.00 lei)\n"
+                                "Total: 4.00 lei\n");
+    }
 }
 
 // checked through the public interface only
@@ -1170,6 +1293,10 @@ int main() {
     testShoppingListMerge();
     testShoppingListFromPlan();
     testShoppingListExport();
+    testIngredientSubtract();
+    testPantryReader();
+    testShoppingListPantry();
+    testShoppingListSort();
 
     return 0;
 }

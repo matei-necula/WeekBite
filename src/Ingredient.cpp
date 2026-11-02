@@ -95,3 +95,16 @@ Ingredient& Ingredient::operator+=(const Ingredient& other) {
     amount += other.amount;
     return *this;
 }
+
+Ingredient& Ingredient::operator-=(const Ingredient& other) {
+    if (name != other.name || unit != other.unit)
+        throw std::invalid_argument("Cannot subtract " + other.name + ": the unit is different");
+    amount -= other.amount;
+    if (amount < 0)
+        amount = 0;
+    return *this;
+}
+
+bool Ingredient::isEmpty() const {
+    return amount <= 0;
+}
