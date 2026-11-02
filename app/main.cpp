@@ -36,7 +36,10 @@ void pantryQuestion(ShoppingList& list) {
             return;
         }
         try {
-            list.subtractPantry(pantryReader(line));
+            const std::vector<std::string> notFound = list.subtractPantry(pantryReader(line));
+            for (const std::string& name : notFound) {
+                std::cout << name << " is not on your list\n";
+            }
             return;
         } catch (const std::invalid_argument &e) {
             std::cout << e.what() << '\n';

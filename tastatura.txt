@@ -10,7 +10,7 @@ y
 potatoes 1000
 cheddar 1 pieces
 bacon -5 g
-potatoes 1000 g, bacon 30 g
+Potatoes 1000 g, bacon 30 g, unicorn 5 g
 1
 y
 shopping.txt

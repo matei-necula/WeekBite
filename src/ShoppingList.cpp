@@ -4,6 +4,7 @@
 
 #include "ShoppingList.h"
 #include "fileHelper.h"
+#include "textHelper.h"
 #include <algorithm>   // std::find_if
 #include <iomanip>     // std::setprecision
 #include <numeric>     // std::accumulate
@@ -28,19 +29,23 @@ void ShoppingList::computeTotal() {
                 [](double sum, const Ingredient& x) { return sum + x.recipePrice(); });
 }
 
-void ShoppingList::subtractPantry(const std::vector<Ingredient>& pantry) {
+std::vector<std::string> ShoppingList::subtractPantry(const std::vector<Ingredient>& pantry) {
     std::vector<Ingredient> left = ingredients;
+    std::vector<std::string> notFound;
     for (const Ingredient& item : pantry) {
         auto it = std::find_if(left.begin(), left.end(),
                          [&item](const Ingredient& x) { return x.getName() == item.getName(); });
         if (it != left.end()) {
             *it -= item;
+        } else {
+            notFound.push_back(item.getName());
         }
     }
     left.erase(std::remove_if(left.begin(), left.end(),
                    [](const Ingredient& x) { return x.isEmpty(); }), left.end());
     ingredients = left;
     computeTotal();
+    return notFound;
 }
 
 void ShoppingList::sortBy(ListSort sortChoice) {
@@ -89,7 +94,7 @@ std::vector<Ingredient> pantryReader(const std::string& input) {
         if (amount <= 0) {
             throw std::invalid_argument("Invalid amount: " + piece);
         }
-        pantry.push_back(Ingredient(0, name, unit, amount));
+        pantry.push_back(Ingredient(0, toLowercase(name), unit, amount));
     }
     if (pantry.empty()) {
         throw std::invalid_argument("No items provided");

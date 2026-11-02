@@ -3,21 +3,10 @@
 //
 
 #include "UserChoices.h"
+#include "textHelper.h"
 
-#include <cctype>      // std::tolower
 #include <stdexcept>   // std::invalid_argument
 #include <string>
-
-namespace {
-    // only this file can see it (same as categoryFromText in Recipe.cpp)
-    std::string toLowercase(const std::string &text) {
-        std::string copy = text;
-        for (char& c : copy) {
-            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        }
-        return copy;
-    }
-}
 
 UserChoices::UserChoices(bool categoryPicked, bool namePicked, bool ingredientPicked, Category category,
                          const std::string &nameText, const std::string &ingredientText,

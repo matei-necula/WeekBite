@@ -22,7 +22,7 @@ class ShoppingList {
 
 public:
     explicit ShoppingList(const std::vector<Ingredient>& allIngredients);
-    void subtractPantry(const std::vector<Ingredient>& pantry);
+    std::vector<std::string> subtractPantry(const std::vector<Ingredient>& pantry);
     void sortBy(ListSort sortChoice);
     void exportList(const std::string& fileName) const;
     friend std::ostream& operator<<(std::ostream& os, const ShoppingList& list);

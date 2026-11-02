@@ -1165,6 +1165,7 @@ namespace {
 
     void testPantryReader() {
         assert(pantryText("oats 200 g") == "oats (200 - g) (0.00 lei)\n");
+        assert(pantryText("Peanut_Butter 50 g") == "peanut_butter (50 - g) (0.00 lei)\n");
         assert(pantryText("oats 200 g, milk 500 ml,eggs 2 pieces") ==
                "oats (200 - g) (0.00 lei)\nmilk (500 - ml) (0.00 lei)\neggs (2 - pieces) (0.00 lei)\n");
 
@@ -1204,10 +1205,26 @@ namespace {
                                 "banana (2 - pieces) (2.34 lei)\n"
                                 "Total: 3.94 lei\n");
 
-        // something at home that is not on the list changes nothing
+        // nothing missing → no names come back
+        ShoppingList found = breakfastList();
+        const std::vector<std::string> noneMissing = found.subtractPantry(pantryReader("milk 100 ml"));
+        assert(noneMissing.empty());
+
+        // things at home that are not on the list change nothing; their names come back, in the order typed
         ShoppingList same = breakfastList();
-        same.subtractPantry(pantryReader("rice 500 g"));
-        assert(printed(same) == printed(breakfastList()));
+        const std::vector<std::string> missing = same.subtractPantry(pantryReader("rice 500 g, milk 0.5 ml, eggs 2 pieces"));
+        assert(missing == std::vector<std::string>({"rice", "eggs"}));
+        assert(printed(same) == "oats (130 - g) (1.95 lei)\n"
+                                "milk (299.5 - ml) (2.40 lei)\n"
+                                "cinnamon (1.5 - tsp)\n"
+                                "banana (2 - pieces) (2.34 lei)\n"
+                                "Total: 6.69 lei\n");
+
+        // names are read in lowercase, so "OATS" matches oats
+        ShoppingList upper = breakfastList();
+        const std::vector<std::string> upperMissing = upper.subtractPantry(pantryReader("OATS 130 g, Milk 300 ml"));
+        assert(upperMissing.empty());
+        assert(printed(upper) == "cinnamon (1.5 - tsp)\nbanana (2 - pieces) (2.34 lei)\nTotal: 2.34 lei\n");
 
         // one bad item (banana in g) → refused, and the whole list stays as it was (oats is not touched either)
         ShoppingList kept = breakfastList();
