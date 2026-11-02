@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <iomanip>
+#include "fileHelper.h"
 
 namespace {
     Category categoryFromText(const std::string& categoryText) {
@@ -144,3 +145,13 @@ void Recipe::printShort(std::ostream& os) const {
     os << std::defaultfloat;
     os.precision(oldPrecision);
     }
+
+void Recipe::exportRecipe(const std::string& fileName) const {
+    std::ofstream file = openFile(fileName);
+    file << *this;
+}
+
+void Recipe::exportRecipeAndScaled(const std::string& fileName, const Recipe& scaledRecipe) const {
+    std::ofstream file = openFile(fileName);
+    file << *this << "\n\nScaled recipe:\n" << scaledRecipe;
+}

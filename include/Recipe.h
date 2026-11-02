@@ -51,6 +51,10 @@ public:
     void printShort(std::ostream& os) const;
 
     Recipe scaled(int newServings) const; // returns a scaled copy so the recipe in the catalog stays unchanged
+
+    void exportRecipe(const std::string& fileName) const;// recipe only
+    void exportRecipeAndScaled(const std::string& fileName, const Recipe& scaledRecipe) const;  // recipe + scaled copy
+
     friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
 };
 

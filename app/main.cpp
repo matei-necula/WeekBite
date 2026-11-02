@@ -7,6 +7,19 @@
 #include "MealPlan.h"
 #include "Recipes.h"
 
+std::string exportQuestion() {
+    std::cout << "Export to a file? (y/n): ";
+    char choice = 'n';
+    std::cin >> choice;
+    if (choice != 'y') {
+        return "";
+    }
+    std::cout << "File name: ";
+    std::string fileName;
+    std::cin >> fileName;
+    return fileName;
+}
+
 int main() {
     // ---------- 1. read the 3 CSV files (assets/ is copied next to the executable) ----------
 
@@ -52,139 +65,163 @@ int main() {
 
 
     while (true) {
-        char choice = 'q';
-        std::cout << "Plan a week (p), search a meal (s) or quit (q): ";
-        if (!(std::cin >> choice) || choice == 'q') {
-            break;
-        }
-        if (choice == 'p') {
-            double weeklyBudget;
-            std::cout << "Enter weekly budget: ";
-            if (!(std::cin >> weeklyBudget) || weeklyBudget <= 0) {
-                std::cout << "Invalid input. Please enter a positive number." << std::endl;
+        try {
+            char choice = 'q';
+            std::cout << "Plan a week (p), search a meal (s) or quit (q): ";
+            if (!(std::cin >> choice) || choice == 'q') {
                 break;
             }
-
-            double caloriesPerDay;
-            std::cout << "Enter calories per day: ";
-            if (!(std::cin >> caloriesPerDay) || caloriesPerDay <= 0) {
-                std::cout << "Invalid input. Please enter a positive number." << std::endl;
-                break;
-            }
-
-            const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog};
-            std::cout << newPlan;
-            if (!newPlan.weekCompleted()) continue;
-
-            std::cout << "Scale the servings? (y/n): ";
-            char answer = 'n';
-            std::cin >> answer;
-            if (answer == 'y' || answer == 'Y') {
-                int servings;
-                std::cout << "Enter number of servings: ";
-                if (!(std::cin >> servings) || servings <= 0) {
+            if (choice == 'p') {
+                double weeklyBudget;
+                std::cout << "Enter weekly budget: ";
+                if (!(std::cin >> weeklyBudget) || weeklyBudget <= 0) {
                     std::cout << "Invalid input. Please enter a positive number." << std::endl;
                     break;
                 }
-                const MealPlan scaledPlan = newPlan.scaled(servings);
-                std::cout << scaledPlan;
-            }
-        } else if (choice == 's') {
-            bool categoryPicked = false;
-            bool namePicked = false;
-            bool ingredientPicked = false;
-            while (true) {
-                std::string criteria;
-                std::cout << "Choose criteria to search by (category,name,ingredient), no spaces: ";
-                if (!(std::cin >> criteria)) {
-                    return 0;
-                }
-                try {
-                    auto [c, n, i] = reader(criteria);
-                    categoryPicked = c;
-                    namePicked = n;
-                    ingredientPicked = i;
+
+                double caloriesPerDay;
+                std::cout << "Enter calories per day: ";
+                if (!(std::cin >> caloriesPerDay) || caloriesPerDay <= 0) {
+                    std::cout << "Invalid input. Please enter a positive number." << std::endl;
                     break;
-                } catch (const std::invalid_argument &e) {
-                    std::cout << e.what() << '\n';
                 }
-            }
-            Category category = Category::breakfast; // used only ifcategoryPicked
-            if (categoryPicked) {
-                std::cout << "Choose category: breakfast-1, lunch-2, dinner-3: ";
-                int categoryNumber;
-                std::cin >> categoryNumber;
-                if (categoryNumber == 1) {
-                    category = Category::breakfast;
-                } else if (categoryNumber == 2) {
-                    category = Category::lunch;
-                } else if (categoryNumber == 3) {
-                    category = Category::dinner;
+
+                const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog};
+                std::cout << newPlan;
+                if (!newPlan.weekCompleted()) continue;
+
+                std::cout << "Scale the servings? (y/n): ";
+                char answer = 'n';
+                std::cin >> answer;
+                if (answer == 'y' || answer == 'Y') {
+                    int servings;
+                    std::cout << "Enter number of servings: ";
+                    if (!(std::cin >> servings) || servings <= 0) {
+                        std::cout << "Invalid input. Please enter a positive number." << std::endl;
+                        break;
+                    }
+                    const MealPlan scaledPlan = newPlan.scaled(servings);
+                    std::cout << scaledPlan;
+                    const std::string fileName = exportQuestion();
+                    if (!fileName.empty()) {
+                        newPlan.exportPlanAndScaled(fileName, scaledPlan);
+                    }
                 } else {
-                    std::cout << "Invalid category number. Please choose 1, 2, or 3.\n";
+                    const std::string fileName = exportQuestion();
+                    if (!fileName.empty()) {
+                        newPlan.exportPlan(fileName);
+                    }
+                }
+            } else if (choice == 's') {
+                bool categoryPicked = false;
+                bool namePicked = false;
+                bool ingredientPicked = false;
+                while (true) {
+                    std::string criteria;
+                    std::cout << "Choose criteria to search by (category,name,ingredient), no spaces: ";
+                    if (!(std::cin >> criteria)) {
+                        return 0;
+                    }
+                    try {
+                        auto [c, n, i] = reader(criteria);
+                        categoryPicked = c;
+                        namePicked = n;
+                        ingredientPicked = i;
+                        break;
+                    } catch (const std::invalid_argument &e) {
+                        std::cout << e.what() << '\n';
+                    }
+                }
+                Category category = Category::breakfast; // used only ifcategoryPicked
+                if (categoryPicked) {
+                    std::cout << "Choose category: breakfast-1, lunch-2, dinner-3: ";
+                    int categoryNumber;
+                    std::cin >> categoryNumber;
+                    if (categoryNumber == 1) {
+                        category = Category::breakfast;
+                    } else if (categoryNumber == 2) {
+                        category = Category::lunch;
+                    } else if (categoryNumber == 3) {
+                        category = Category::dinner;
+                    } else {
+                        std::cout << "Invalid category number. Please choose 1, 2, or 3.\n";
+                        break;
+                    }
+                }
+                std::string nameText;
+                if (namePicked) {
+                    std::cout << "Type the name: ";
+                    std::cin >> nameText;
+                }
+                std::string ingredientText;
+                if (ingredientPicked) {
+                    std::cout << "Type the ingredient: ";
+                    std::cin >> ingredientText;
+                }
+                // 3. sort choice
+                std::cout << "Sort by calories (1) or price (2): ";
+                int sortNumber;
+                std::cin >> sortNumber;
+                SortChoice sortChoice = SortChoice::calories;
+                if (sortNumber == 1) {
+                    sortChoice = SortChoice::calories;
+                } else if (sortNumber == 2) {
+                    sortChoice = SortChoice::price;
+                } else {
+                    std::cout << "Invalid sort choice. Please choose 1 or 2.\n";
                     break;
                 }
-            }
-            std::string nameText;
-            if (namePicked) {
-                std::cout << "Type the name: ";
-                std::cin >> nameText;
-            }
-            std::string ingredientText;
-            if (ingredientPicked) {
-                std::cout << "Type the ingredient: ";
-                std::cin >> ingredientText;
-            }
-            // 3. sort choice
-            std::cout << "Sort by calories (1) or price (2): ";
-            int sortNumber;
-            std::cin >> sortNumber;
-            SortChoice sortChoice = SortChoice::calories;
-            if (sortNumber == 1) {
-                sortChoice = SortChoice::calories;
-            } else if (sortNumber == 2) {
-                sortChoice = SortChoice::price;
+
+                const UserChoices choices{
+                    categoryPicked, namePicked, ingredientPicked, category, nameText, ingredientText, sortChoice
+                };
+                const std::vector<Recipe> results = catalog.searchUserChoices(choices);
+                if (results.empty()) {
+                    std::cout << "No recipes found.\n";
+                    continue;
+                }
+
+                for (std::size_t i = 0; i < results.size(); ++i) {
+                    std::cout << i + 1 << ". ";
+                    results[i].printShort(std::cout);
+                }
+
+                std::cout << "Pick a recipe number: ";
+                int pick;
+                std::cin >> pick;
+                if (pick < 1 || static_cast<std::size_t>(pick) > results.size()) {
+                    std::cout << "Invalid recipe number.\n";
+                    break;
+                }
+                std::cout << results[pick - 1];
+                std::cout << "Do you want to scale the recipe? (y/n): ";
+                char scaleChoice;
+                std::cin >> scaleChoice;
+                if (scaleChoice == 'y' || scaleChoice == 'Y') {
+                    std::cout << "Enter the number of servings: ";
+                    int servings;
+                    if (!(std::cin >> servings) || servings <= 0) {
+                        std::cout << "Invalid input. Please enter a positive number." << std::endl;
+                        break;
+                    }
+                    const Recipe savedScaledRecipe = results[pick - 1].scaled(servings);
+                    std::cout << savedScaledRecipe;
+                    const std::string fileName = exportQuestion();
+                    if (!fileName.empty()) {
+                        results[pick-1].exportRecipeAndScaled(fileName, savedScaledRecipe);
+                    }
+                } else {
+                    const std::string fileName = exportQuestion();
+                    if (!fileName.empty()) {
+                        results[pick-1].exportRecipe(fileName);
+                    }
+                }
+
             } else {
-                std::cout << "Invalid sort choice. Please choose 1 or 2.\n";
-                break;
+                std::cout << "Invalid choice. Type p, s or q." << std::endl;
             }
-
-            const UserChoices choices{
-                categoryPicked, namePicked, ingredientPicked, category, nameText, ingredientText, sortChoice
-            };
-            const std::vector<Recipe> results = catalog.searchUserChoices(choices);
-            if (results.empty()) {
-                std::cout << "No recipes found.\n";
-                continue;
-            }
-
-            for (std::size_t i = 0; i < results.size(); ++i) {
-                std::cout << i + 1 << ". ";
-                results[i].printShort(std::cout);
-            }
-
-            std::cout << "Pick a recipe number: ";
-            int pick;
-            std::cin >> pick;
-            if (pick < 1 || static_cast<std::size_t>(pick) > results.size()) {
-                std::cout << "Invalid recipe number.\n";
-                break;
-            }
-            std::cout << results[pick - 1];
-            std::cout << "Do you want to scale the recipe? (y/n): ";
-            char scaleChoice;
-            std::cin >> scaleChoice;
-            if (scaleChoice == 'y' || scaleChoice == 'Y') {
-                std::cout << "Enter the number of servings: ";
-                int servings;
-                if (!(std::cin >> servings) || servings <= 0) {
-                    std::cout << "Invalid input. Please enter a positive number." << std::endl;
-                    break;
-                }
-                std::cout << results[pick - 1].scaled(servings);
-            }
-        } else {
-            std::cout << "Invalid choice. Type p, s or q." << std::endl;
+        } catch (const std::runtime_error& e) {
+            std::cout << e.what() << '\n';
         }
     }
     return 0;

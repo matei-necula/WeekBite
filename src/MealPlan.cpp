@@ -7,6 +7,9 @@
 #include <cmath>
 #include <iomanip>
 #include <stdexcept>
+#include <fstream>
+
+#include "fileHelper.h"
 
 MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog)
     : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay) {
@@ -118,4 +121,14 @@ std::ostream& operator<<(std::ostream& os, const MealPlan& plan) {
     }
 
     return os;
+}
+
+void MealPlan::exportPlan(const std::string& fileName) const {
+    std::ofstream file = openFile(fileName);
+    file << *this;
+}
+
+void MealPlan::exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const {
+    std::ofstream file = openFile(fileName);
+    file << *this << "\n\nScaled plan:\n" << scaledPlan;
 }

@@ -9,6 +9,7 @@
 #include <vector>
 #include "DayMeals.h"
 #include "Recipes.h"
+#include <string>
 
 class MealPlan {
     std::vector<DayMeals> days; // 7 when the plan worked, fewer when it failed
@@ -24,6 +25,10 @@ public:
     bool weekCompleted() const;
 
     MealPlan scaled(int newServings) const;
+
+    void exportPlan(const std::string& fileName) const;// plan only
+
+    void exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const;  // plan + scaled copy
 
     friend std::ostream& operator<<(std::ostream& os, const MealPlan& plan);
 };
