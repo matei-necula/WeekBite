@@ -27,6 +27,7 @@
 #include "PlanConstraint.h"
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
+#include "WeekdayPrepTimeConstraint.h"
 
 namespace {
     bool nearlyEqual(double a, double b) {
@@ -131,21 +132,21 @@ namespace {
             Ingredient{1.17, "banana", "pieces", 1},
             Ingredient{0, "cinnamon", "tsp", 0.5},
         };
-        return Recipe{"oatmeal_banana", "breakfast", ingredients, Nutrition{549, 21.5, 90.5, 13.1, 24.9}, 1};
+        return Recipe{"oatmeal_banana", "breakfast", ingredients, Nutrition{549, 21.5, 90.5, 13.1, 24.9}, 1, 10};
     }
 
     void testRecipePrice() {
         // 1.20 (oats) + 1.60 (milk) + 1.17 (banana) + 0 (cinnamon, tsp)
         assert(nearlyEqual(oatmealBanana().recipePrice(), 3.97));
 
-        const Recipe empty{"water", "lunch", {}, Nutrition{0, 0, 0, 0, 0}, 1};
+        const Recipe empty{"water", "lunch", {}, Nutrition{0, 0, 0, 0, 0}, 1, 10};
         assert(nearlyEqual(empty.recipePrice(), 0) && "no ingredients, no cost");
 
         const char* badCategories[] = {"Breakfast", "snack", ""};
         for (const char* bad : badCategories) {
             bool threw = false;
             try {
-                const Recipe broken{"x", bad, {}, Nutrition{0, 0, 0, 0, 0}, 1};
+                const Recipe broken{"x", bad, {}, Nutrition{0, 0, 0, 0, 0}, 1, 10};
                 (void) broken;
             } catch (const std::invalid_argument&) {
                 threw = true;
@@ -177,12 +178,12 @@ namespace {
             Ingredient{0, "salt", "tsp", 0.5},
             Ingredient{0, "paprika", "tsp", 1},
         };
-        const std::string twoNotes = printed(Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1});
+        const std::string twoNotes = printed(Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1, 10});
         assert(twoNotes.find("(price may vary because of salt, paprika)\n") != std::string::npos);
 
         // every ingredient priced: no note at all, nutrition is the last line
         const std::vector<Ingredient> plain{Ingredient{3.40, "chicken_breast", "g", 200}};
-        const std::string noNote = printed(Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1});
+        const std::string noNote = printed(Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1, 10});
         assert(noNote.find("price may vary") == std::string::npos);
         assert(noNote.substr(noNote.size() - 1) == "\n" && "the last line ends with a newline");
 
@@ -203,19 +204,19 @@ namespace {
 
         // operator=: every field is replaced, the source stays as it was
         const std::vector<Ingredient> plain{Ingredient{3.40, "chicken_breast", "g", 200}};
-        Recipe target{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2};
+        Recipe target{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2, 10};
         target = original;
         assert(printed(target) == expected);
         assert(printed(original) == expected);
 
         // assigning something else afterwards changes only the target
-        target = Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2};
+        target = Recipe{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 2, 10};
         assert(printed(target).starts_with("plain_chicken (lunch, 2 servings)\n"));
         assert(printed(copy) == expected && "the copy is independent of the target");
 
         // chained assignment returns the assigned object
-        Recipe first{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1};
-        Recipe second{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1};
+        Recipe first{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1, 10};
+        Recipe second{"plain_chicken", "lunch", plain, Nutrition{330, 62, 0, 7.2, 0}, 1, 10};
         first = second = original;
         assert(printed(first) == expected);
         assert(printed(second) == expected);
@@ -271,10 +272,10 @@ namespace {
             {"oats", 1.50}, {"milk", 0.80}, {"banana", 1.17}, {"chicken_breast", 3.40}, {"eggs", 1.20},
         };
         const std::vector<RecipeRow> recipeRows{
-            {"oatmeal_banana", "breakfast", Nutrition{549, 21.5, 90.5, 13.1, 24.9}},
-            {"plain_chicken", "lunch", Nutrition{330, 62, 0, 7.2, 0}},
-            {"boiled_eggs", "breakfast", Nutrition{210, 18, 1, 15, 1}},
-            {"water", "dinner", Nutrition{0, 0, 0, 0, 0}},
+            {"oatmeal_banana", "breakfast", Nutrition{549, 21.5, 90.5, 13.1, 24.9}, 10},
+            {"plain_chicken", "lunch", Nutrition{330, 62, 0, 7.2, 0}, 10},
+            {"boiled_eggs", "breakfast", Nutrition{210, 18, 1, 15, 1}, 10},
+            {"water", "dinner", Nutrition{0, 0, 0, 0, 0}, 10},
         };
         const std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe{
             {"oatmeal_banana", {{"oats", 80, "g"}, {"milk", 200, "ml"}, {"banana", 1, "pieces"}, {"cinnamon", 0.5, "tsp"}}},
@@ -382,7 +383,7 @@ namespace {
     }
 
     Recipe plainChicken() {
-        return Recipe{"plain_chicken", "lunch", {Ingredient{3.40, "chicken_breast", "g", 200}}, Nutrition{330, 62, 0, 7.2, 0}, 1};
+        return Recipe{"plain_chicken", "lunch", {Ingredient{3.40, "chicken_breast", "g", 200}}, Nutrition{330, 62, 0, 7.2, 0}, 1, 10};
     }
 
     Recipe spicedChicken() {
@@ -390,7 +391,7 @@ namespace {
             Ingredient{3.40, "chicken_breast", "g", 200},
             Ingredient{0, "salt", "tsp", 0.5},
         };
-        return Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1};
+        return Recipe{"spiced_chicken", "dinner", spiced, Nutrition{400, 50, 0, 10, 0}, 1, 10};
     }
 
     std::string printed(const DayMeals& day) {
@@ -492,7 +493,7 @@ namespace {
         std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
         for (const auto& [name, category, kcal, price] : rows) {
             prices[name + "_ing"] = price;
-            recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0});
+            recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0}, 10);
             ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
         }
         return Recipes{prices, recipeRows, ingredientsByRecipe};
@@ -828,8 +829,8 @@ namespace {
         // two lunches with the same price: stable sort keeps them in catalog order
         const std::map<std::string, double> prices{{"rice", 1.00}};
         const std::vector<RecipeRow> recipeRows{
-            {"rice_one", "lunch", Nutrition{500, 10, 100, 1, 0}},
-            {"rice_two", "lunch", Nutrition{400, 10, 80, 1, 0}},
+            {"rice_one", "lunch", Nutrition{500, 10, 100, 1, 0}, 10},
+            {"rice_two", "lunch", Nutrition{400, 10, 80, 1, 0}, 10},
         };
         const std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe{
             {"rice_one", {{"rice", 100, "g"}}},
@@ -1296,7 +1297,7 @@ namespace {
 
     // a recipe that only has calories (enough for the balance rule)
     Recipe kcalRecipe(const std::string& name, double kcal) {
-        return Recipe{name, "lunch", {}, Nutrition{kcal, 0, 0, 0, 0}, 1};
+        return Recipe{name, "lunch", {}, Nutrition{kcal, 0, 0, 0, 0}, 1, 10};
     }
 
     void testMealBalanceConstraint() {
@@ -1357,7 +1358,7 @@ namespace {
 
     // a recipe with calories, protein and sugar
     Recipe nutrientRecipe(const std::string& name, double protein, double sugar) {
-        return Recipe{name, "lunch", {}, Nutrition{500, protein, 0, 0, sugar}, 1};
+        return Recipe{name, "lunch", {}, Nutrition{500, protein, 0, 0, sugar}, 1, 10};
     }
 
     void testNutritionTargetConstraint() {
@@ -1392,6 +1393,94 @@ namespace {
         assert(!copy->isValid(noDays, {lean}, sweet));
         assert(!copy->isValid(noDays, {lean, lean}, nutrientRecipe("low", 5, 0)));
         assert(copy->isValid(noDays, {lean, lean}, lean));
+    }
+
+    // a recipe that only matters for its cooking time
+    Recipe timedRecipe(const std::string& name, int minutes) {
+        return Recipe{name, "lunch", {}, Nutrition{500, 0, 0, 0, 0}, 1, minutes};
+    }
+
+    // n finished days, so the next one is day n (0 = Monday)
+    std::vector<DayMeals> daysBuilt(int n) {
+        const Recipe meal = timedRecipe("meal", 10);
+        return std::vector<DayMeals>(static_cast<std::size_t>(n), DayMeals{meal, meal, meal});
+    }
+
+    void testRecipeTakesAtMost() {
+        const Recipe stew = timedRecipe("stew", 45);
+        assert(stew.takesAtMost(45));
+        assert(stew.takesAtMost(60));
+        assert(!stew.takesAtMost(44));
+        // the cooking time survives copies and scaling
+        const Recipe copy = stew;
+        assert(!copy.takesAtMost(44));
+        Recipe assigned = timedRecipe("quick", 5);
+        assigned = stew;
+        assert(!assigned.takesAtMost(44));
+        assert(!stew.scaled(3).takesAtMost(44));
+    }
+
+    void testWeekdayPrepTimeConstraint() {
+        const std::unique_ptr<PlanConstraint> weekdays = std::make_unique<WeekdayPrepTimeConstraint>(30, true);
+        const std::unique_ptr<PlanConstraint> everyDay = std::make_unique<WeekdayPrepTimeConstraint>(30, false);
+        const Recipe quick = timedRecipe("quick", 30);
+        const Recipe slow = timedRecipe("slow", 31);
+
+        // Monday (no days built yet) to Friday (4 built): a meal over 30 minutes is rejected
+        for (int built = 0; built <= 4; built++) {
+            assert(weekdays->isValid(daysBuilt(built), {}, quick));
+            assert(!weekdays->isValid(daysBuilt(built), {}, slow));
+        }
+        // Saturday and Sunday: no limit when only weekdays are limited
+        assert(weekdays->isValid(daysBuilt(5), {}, slow));
+        assert(weekdays->isValid(daysBuilt(6), {}, slow));
+        // every day limited: the weekend too
+        assert(!everyDay->isValid(daysBuilt(0), {}, slow));
+        assert(!everyDay->isValid(daysBuilt(6), {}, slow));
+        assert(everyDay->isValid(daysBuilt(6), {}, quick));
+
+        // a clone keeps both settings
+        const std::unique_ptr<PlanConstraint> weekdaysCopy = weekdays->clone();
+        assert(!weekdaysCopy->isValid(daysBuilt(0), {}, slow));
+        assert(weekdaysCopy->isValid(daysBuilt(5), {}, slow));
+        const std::unique_ptr<PlanConstraint> everyDayCopy = everyDay->clone();
+        assert(!everyDayCopy->isValid(daysBuilt(6), {}, slow));
+    }
+
+    std::vector<std::unique_ptr<PlanConstraint>> onlyPrepTime(bool weekdaysOnly) {
+        std::vector<std::unique_ptr<PlanConstraint>> constraints;
+        constraints.push_back(std::make_unique<WeekdayPrepTimeConstraint>(30, weekdaysOnly));
+        return constraints;
+    }
+
+    void testMealPlanWithPrepTime() {
+        // "roast" is exactly 40% of 2000 kcal, so it is the first lunch tried every day, but takes 90 minutes
+        // (every other test recipe takes 10)
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("roast", "lunch", 800, 1);
+        std::map<std::string, double> prices;
+        std::vector<RecipeRow> recipeRows;
+        std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
+        for (const auto& [name, category, kcal, price] : rows) {
+            prices[name + "_ing"] = price;
+            recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0}, name == "roast" ? 90 : 10);
+            ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
+        }
+        const Recipes catalog{prices, recipeRows, ingredientsByRecipe};
+
+        // no limit: the roast is Monday's lunch
+        const MealPlan noLimit{70, 2000, catalog};
+        assert(timesServed(dayText(printed(noLimit), 1), "roast") == 1);
+        // weekdays only: skipped Monday to Friday, served on Saturday (day 6)
+        const MealPlan weekdays{70, 2000, catalog, onlyPrepTime(true)};
+        assert(weekdays.weekCompleted());
+        const std::string weekdaysOutput = printed(weekdays);
+        assert(timesServed(weekdaysOutput, "roast") == 1);
+        assert(timesServed(dayText(weekdaysOutput, 6), "roast") == 1);
+        // every day: never served, the week still completes with the other 7 lunches
+        const MealPlan everyDay{70, 2000, catalog, onlyPrepTime(false)};
+        assert(everyDay.weekCompleted());
+        assert(timesServed(printed(everyDay), "roast") == 0);
     }
 
     void testMealPlanCopyWithConstraints() {
@@ -1470,6 +1559,9 @@ int main() {
     testMealPlanWithBalance();
     testMealPlanCopyWithConstraints();
     testNutritionTargetConstraint();
+    testRecipeTakesAtMost();
+    testWeekdayPrepTimeConstraint();
+    testMealPlanWithPrepTime();
 
     return 0;
 }
