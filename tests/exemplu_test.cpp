@@ -1323,7 +1323,7 @@ namespace {
 
         // a clone answers the same way
         const std::unique_ptr<PlanConstraint> copy = balance->clone();
-        assert(copy != nullptr && copy.get() != balance.get());
+        assert(copy != nullptr && copy != balance);
         assert(!copy->isValid(noDays, {schnitzel}, consomme));
         assert(copy->isValid(noDays, {schnitzel}, porridge));
     }
