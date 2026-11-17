@@ -10,6 +10,7 @@
 #include "ShoppingList.h"
 #include <memory>
 #include "MealBalanceConstraint.h"
+#include "NutritionTargetConstraint.h"
 
 // a line between what the user types and what the program shows
 void printSeparator() {
@@ -43,6 +44,25 @@ std::string exportQuestion() {
     return fileName;
 }
 
+// asks until the user types a number >= 0; if the input ends, 0 (no target)
+double readNonNegative(const std::string& prompt) {
+    while (true) {
+        std::cout << prompt;
+        double value = 0;
+        if (std::cin >> value) {
+            if (value >= 0) {
+                return value;
+            }
+            std::cout << "The number must be 0 or more.\n";
+            continue;
+        }
+        if (std::cin.eof()) {
+            return 0;
+        }
+        skipBadInput();
+    }
+}
+
 std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
     std::vector<std::unique_ptr<PlanConstraint>> constraints;
     std::cout << "Keep meals balanced (no meal more than 3x another)? (y/n): ";
@@ -50,6 +70,17 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
     std::cin >> choice;
     if (choice == 'y') {
         constraints.push_back(std::make_unique<MealBalanceConstraint>());
+    }
+    std::cout << "Set daily nutrition targets? (y/n): ";
+    std::cin >> choice;
+    if (choice == 'y') {
+        const double minProtein = readNonNegative("Minimum protein per day in g (0 = none): ");
+        const double maxCarbs = readNonNegative("Maximum carbs per day in g (0 = no limit): ");
+        const double maxFats = readNonNegative("Maximum fats per day in g (0 = no limit): ");
+        const double maxSugar = readNonNegative("Maximum sugar per day in g (0 = no limit): ");
+        constraints.push_back(std::make_unique<NutritionTargetConstraint>(
+            Nutrition{0, minProtein, 0, 0, 0},
+            Nutrition{0, 0, maxCarbs, maxFats, maxSugar}));
     }
     return constraints;
 }
@@ -69,7 +100,7 @@ void pantryQuestion(ShoppingList& list) {
         }
         try {
             const std::vector<std::string> notFound = list.subtractPantry(pantryReader(line));
-            for (const std::string& name : notFound) {
+            for (const std::string& name: notFound) {
                 std::cout << name << " is not on your list\n";
             }
             return;
@@ -196,7 +227,7 @@ int main() {
                 const std::streamsize oldPrecision = std::cout.precision();
                 std::cout << std::fixed << std::setprecision(2);
                 std::cout << "Average kcal per day: " << newPlan.averageKcalPerDay()
-                          << " kcal (target: " << caloriesPerDay << " kcal)\n";
+                        << " kcal (target: " << caloriesPerDay << " kcal)\n";
                 std::cout << "Week nutrition total:\n" << newPlan.weekNutritionTotal() << '\n';
                 std::cout << "Budget left: " << newPlan.budgetLeft() << " lei\n";
                 std::cout << "Cheapest day: Day " << newPlan.cheapestDay() << '\n';
@@ -243,10 +274,10 @@ int main() {
                 while (true) {
                     std::string criteria;
                     std::cout << "Search by:\n"
-                              << "  category   - the meal of the day: breakfast, lunch or dinner\n"
-                              << "  name       - a word from the recipe's name\n"
-                              << "  ingredient - something the recipe contains\n"
-                              << "Type one or more, separated by commas, no spaces (e.g. category,ingredient), or back: ";
+                            << "  category   - the meal of the day: breakfast, lunch or dinner\n"
+                            << "  name       - a word from the recipe's name\n"
+                            << "  ingredient - something the recipe contains\n"
+                            << "Type one or more, separated by commas, no spaces (e.g. category,ingredient), or back: ";
                     if (!(std::cin >> criteria)) {
                         return 0;
                     }
@@ -368,15 +399,14 @@ int main() {
                     printSeparator();
                     const std::string fileName = exportQuestion();
                     if (!fileName.empty()) {
-                        results[pick-1].exportRecipeAndScaled(fileName, savedScaledRecipe);
+                        results[pick - 1].exportRecipeAndScaled(fileName, savedScaledRecipe);
                     }
                 } else {
                     const std::string fileName = exportQuestion();
                     if (!fileName.empty()) {
-                        results[pick-1].exportRecipe(fileName);
+                        results[pick - 1].exportRecipe(fileName);
                     }
                 }
-
             } else if (choice == 'c') {
                 const std::vector<Category> categories = {
                     Category::breakfast,
@@ -386,7 +416,7 @@ int main() {
 
                 const std::streamsize oldPrecision = std::cout.precision();
                 printSeparator();
-                for (Category cat : categories) {
+                for (Category cat: categories) {
                     const auto& list = catalog.getRecipesFromCategory(cat);
                     std::cout << categoryToText(cat) << " (" << list.size() << " recipes):\n";
                     std::cout << std::fixed << std::setprecision(2);
@@ -401,8 +431,7 @@ int main() {
                 }
                 std::cout.precision(oldPrecision);
                 printSeparator();
-            }
-            else {
+            } else {
                 std::cout << "Invalid choice. Type p, s, c or q." << std::endl;
             }
         } catch (const std::runtime_error& e) {

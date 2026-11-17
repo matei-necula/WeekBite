@@ -30,3 +30,29 @@ std::ostream& operator<<(std::ostream& os, const Nutrition& nutrition) {
             nutrition.carbohydrates << "g, Fats: " << nutrition.fats << "g, Sugar: " << nutrition.sugar << "g";
     return os;
 }
+
+std::array<double, 5> Nutrition::values() const {
+    return {calories, protein, carbohydrates, fats, sugar};
+}
+
+bool Nutrition::fitsUnder(const Nutrition& maxim) const {
+    const std::array<double, 5> mine = values();
+    const std::array<double, 5> limits = maxim.values();
+    for (std::size_t i = 0; i < mine.size(); i++) {
+        if (limits[i] > 0 && mine[i] > limits[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Nutrition::reaches(const Nutrition& minim) const {
+    const std::array<double, 5> mine = values();
+    const std::array<double, 5> limits = minim.values();
+    for (std::size_t i = 0; i < mine.size(); i++) {
+        if (mine[i] < limits[i]) {
+            return false;
+        }
+    }
+    return true;
+}

@@ -81,6 +81,7 @@ target_sources(${MAIN_LIBRARY_NAME}
         src/textHelper.cpp
         src/PlanConstraint.cpp
         src/MealBalanceConstraint.cpp
+        src/NutritionTargetConstraint.cpp
 )
 
 # NOTE: Add all defined targets (e.g. executables, libraries, etc. )
