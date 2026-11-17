@@ -8,6 +8,8 @@
 #include "Recipes.h"
 #include <iomanip>
 #include "ShoppingList.h"
+#include <memory>
+#include "MealBalanceConstraint.h"
 
 // a line between what the user types and what the program shows
 void printSeparator() {
@@ -41,6 +43,17 @@ std::string exportQuestion() {
     return fileName;
 }
 
+std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
+    std::vector<std::unique_ptr<PlanConstraint>> constraints;
+    std::cout << "Keep meals balanced (no meal more than 3x another)? (y/n): ";
+    char choice = 'n';
+    std::cin >> choice;
+    if (choice == 'y') {
+        constraints.push_back(std::make_unique<MealBalanceConstraint>());
+    }
+    return constraints;
+}
+
 void pantryQuestion(ShoppingList& list) {
     std::cout << "Do you have ingredients at home? (y/n): ";
     char answer = 'n';
@@ -60,7 +73,7 @@ void pantryQuestion(ShoppingList& list) {
                 std::cout << name << " is not on your list\n";
             }
             return;
-        } catch (const std::invalid_argument &e) {
+        } catch (const std::invalid_argument& e) {
             std::cout << e.what() << '\n';
         }
     }
@@ -103,14 +116,14 @@ int main() {
     // ingredients.csv  →  name,price
     std::map<std::string, double> prices;
     csv::CSVReader ingredientsFile{"assets/ingredients.csv"};
-    for (csv::CSVRow &row: ingredientsFile) {
+    for (csv::CSVRow& row: ingredientsFile) {
         prices[row["name"].get<std::string>()] = row["price"].get<double>();
     }
 
     // recipes.csv  →  name,category,calories,protein,carbohydrates,fats,sugar
     std::vector<RecipeRow> recipeRows;
     csv::CSVReader recipesFile{"assets/recipes.csv"};
-    for (csv::CSVRow &row: recipesFile) {
+    for (csv::CSVRow& row: recipesFile) {
         recipeRows.emplace_back(row["name"].get<std::string>(),
                                 row["category"].get<std::string>(),
                                 Nutrition{
@@ -123,9 +136,9 @@ int main() {
     }
 
     // recipe_ingredients.csv  →  recipe,ingredient,amount,unit
-    std::map<std::string, std::vector<IngredientRow> > ingredientsByRecipe;
+    std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
     csv::CSVReader recipeIngredientsFile{"assets/recipe_ingredients.csv"};
-    for (csv::CSVRow &row: recipeIngredientsFile) {
+    for (csv::CSVRow& row: recipeIngredientsFile) {
         ingredientsByRecipe[row["recipe"].get<std::string>()].emplace_back(row["ingredient"].get<std::string>(),
                                                                            row["amount"].get<double>(),
                                                                            row["unit"].get<std::string>());
@@ -172,7 +185,7 @@ int main() {
                     continue;
                 }
 
-                const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog};
+                const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog, constraintsQuestion()};
                 printSeparator();
                 std::cout << newPlan;
                 if (!newPlan.weekCompleted()) {
@@ -247,7 +260,7 @@ int main() {
                         namePicked = n;
                         ingredientPicked = i;
                         break;
-                    } catch (const std::invalid_argument &e) {
+                    } catch (const std::invalid_argument& e) {
                         std::cout << e.what() << '\n';
                     }
                 }

@@ -10,6 +10,8 @@
 #include "DayMeals.h"
 #include "Recipes.h"
 #include <string>
+#include <memory>
+#include "PlanConstraint.h"
 
 class MealPlan {
     std::vector<DayMeals> days; // 7 when the plan worked, fewer when it failed
@@ -19,22 +21,37 @@ class MealPlan {
     // the greedy; private, only the constructor calls it
     void processPlan(const Recipes& catalog);
 
+    std::vector<std::unique_ptr<PlanConstraint>> constraints;
+
+    bool passesConstraints(const std::vector<Recipe>& todayRecipesSoFar, const Recipe& candidate) const;
+
 public:
-    MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog);
+    MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog,
+             std::vector<std::unique_ptr<PlanConstraint>> constraints = {});
+
+    MealPlan(const MealPlan& other);
+
+    MealPlan& operator=(MealPlan other);
+
+    friend void swap(MealPlan& first, MealPlan& second) noexcept;
 
     bool weekCompleted() const;
 
     MealPlan scaled(int newServings) const;
 
     Nutrition weekNutritionTotal() const;
+
     double averageKcalPerDay() const;
+
     double budgetLeft() const;
+
     int cheapestDay() const;
+
     int mostExpensiveDay() const;
 
-    void exportPlan(const std::string& fileName) const;// plan only
+    void exportPlan(const std::string& fileName) const; // plan only
 
-    void exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const;  // plan + scaled copy
+    void exportPlanAndScaled(const std::string& fileName, const MealPlan& scaledPlan) const; // plan + scaled copy
 
     std::vector<Ingredient> giveIngredients() const;
 

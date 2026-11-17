@@ -27,12 +27,12 @@ class UserChoices {
 
 public:
     UserChoices(bool categoryPicked, bool namePicked, bool ingredientPicked,
-                Category category, const std::string &nameText, const std::string &ingredientText,
+                Category category, const std::string& nameText, const std::string& ingredientText,
                 SortChoice sortChoice);
 
-    bool matches(const Recipe &recipe) const;
+    bool matches(const Recipe& recipe) const;
 
-    bool comesBefore(const Recipe &recipeA, const Recipe &recipeB) const;
+    bool comesBefore(const Recipe& recipeA, const Recipe& recipeB) const;
 };
 
 #endif //OOP_USERCHOICES_H

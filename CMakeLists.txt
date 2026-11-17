@@ -79,6 +79,8 @@ target_sources(${MAIN_LIBRARY_NAME}
         src/fileHelper.cpp
         src/ShoppingList.cpp
         src/textHelper.cpp
+        src/PlanConstraint.cpp
+        src/MealBalanceConstraint.cpp
 )
 
 # NOTE: Add all defined targets (e.g. executables, libraries, etc. )

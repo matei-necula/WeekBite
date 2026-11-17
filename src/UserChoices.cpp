@@ -9,7 +9,7 @@
 #include <string>
 
 UserChoices::UserChoices(bool categoryPicked, bool namePicked, bool ingredientPicked, Category category,
-                         const std::string &nameText, const std::string &ingredientText,
+                         const std::string& nameText, const std::string& ingredientText,
                          SortChoice sortChoice) : categoryPicked(categoryPicked), namePicked(namePicked),
                                                   ingredientPicked(ingredientPicked), category(category),
                                                   nameText(toLowercase(nameText)),
@@ -22,14 +22,14 @@ UserChoices::UserChoices(bool categoryPicked, bool namePicked, bool ingredientPi
     }
 }
 
-bool UserChoices::matches(const Recipe &recipe) const {
+bool UserChoices::matches(const Recipe& recipe) const {
     if (categoryPicked && !recipe.questionCategory(category)) return false;
     if (namePicked && !recipe.questionName(nameText)) return false;
     if (ingredientPicked && !recipe.questionIngredient(ingredientText)) return false;
     return true;
 }
 
-bool UserChoices::comesBefore(const Recipe &recipeA, const Recipe &recipeB) const { // we use stable sort but it doesn't know what to sort
+bool UserChoices::comesBefore(const Recipe& recipeA, const Recipe& recipeB) const { // we use stable sort but it doesn't know what to sort
     if (sortChoice == SortChoice::calories) {
         if (recipeA.getNutrition().getCalories() < recipeB.getNutrition().getCalories()) return true;
     }

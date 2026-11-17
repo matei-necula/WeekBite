@@ -22,7 +22,7 @@ const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) co
 
 Recipes::Recipes(const std::map<std::string, double>& prices,
                  const std::vector<RecipeRow>& recipeRows,
-                 const std::map<std::string, std::vector<IngredientRow> >& ingredientsByRecipe) {
+                 const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe) {
     for (const auto& [name, categoryText, nutrition]: recipeRows) {
         std::vector<Ingredient> ingredients;
         const auto found = ingredientsByRecipe.find(name); // ask map

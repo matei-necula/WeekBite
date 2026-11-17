@@ -9,11 +9,13 @@
 #include <stdexcept>
 #include <fstream>
 #include <numeric>
-
+#include <utility>
 #include "fileHelper.h"
+#include "PlanConstraint.h"
 
-MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog)
-    : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay) {
+MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog,
+                   std::vector<std::unique_ptr<PlanConstraint>> constraints)
+    : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay), constraints(std::move(constraints)) {
     // days starts empty; the greedy fills it
     processPlan(catalog);
 }
@@ -38,6 +40,9 @@ void MealPlan::processPlan(const Recipes& catalog) {
             if (lunch.recipePrice() > dailyBudget)
                 continue;
             else {
+                if (!passesConstraints({}, lunch))
+                    continue;
+                const std::vector<Recipe> todayAfterLunch{lunch};
                 double half = (caloriesPerDay - lunch.getNutrition().getCalories()) / 2;
                 double moneyForBreakfast = (dailyBudget - lunch.recipePrice()) / 2;
                 double moneyForDinner = moneyForBreakfast;
@@ -45,6 +50,9 @@ void MealPlan::processPlan(const Recipes& catalog) {
                 double bestDistanceBreakfast = 0;
                 for (int j = 0; j < static_cast<int>(copyBreakfast.size()); j++) {
                     if (copyBreakfast[j].recipePrice() > moneyForBreakfast) {
+                        continue;
+                    }
+                    if (!passesConstraints(todayAfterLunch, copyBreakfast[j])) {
                         continue;
                     }
                     double distance = std::abs(copyBreakfast[j].getNutrition().getCalories() - half);
@@ -56,10 +64,14 @@ void MealPlan::processPlan(const Recipes& catalog) {
                 if (bestBreakfast == -1) {
                     continue; // could not find a suitable breakfast , goes to next lunch
                 }
+                const std::vector<Recipe> todayAfterBreakfast{lunch, copyBreakfast[bestBreakfast]};
                 int bestDinner = -1; // same algorithm as breakfast but for dinner
                 double bestDistanceDinner = 0;
                 for (int j = 0; j < static_cast<int>(copyDinner.size()); j++) {
                     if (copyDinner[j].recipePrice() > moneyForDinner) {
+                        continue;
+                    }
+                    if (!passesConstraints(todayAfterBreakfast, copyDinner[j])) {
                         continue;
                     }
                     double distance = std::abs(copyDinner[j].getNutrition().getCalories() - half);
@@ -96,7 +108,7 @@ MealPlan MealPlan::scaled(int newServings) const {
     }
     MealPlan scaledPlan = *this;
     scaledPlan.days.clear();
-    for (const auto& day : days) {
+    for (const auto& day: days) {
         scaledPlan.days.push_back(day.scaled(newServings));
     }
     return scaledPlan;
@@ -183,4 +195,33 @@ std::vector<Ingredient> MealPlan::giveIngredients() const {
         result.insert(result.end(), dayList.begin(), dayList.end());
     }
     return result;
+}
+
+MealPlan::MealPlan(const MealPlan& other)
+    : days(other.days), weeklyBudget(other.weeklyBudget), caloriesPerDay(other.caloriesPerDay) {
+    for (const auto& constraint: other.constraints) {
+        constraints.push_back(constraint->clone());
+    }
+}
+
+MealPlan& MealPlan::operator=(MealPlan other) {
+    swap(*this, other);
+    return *this;
+}
+
+void swap(MealPlan& first, MealPlan& second) noexcept {
+    using std::swap;
+    swap(first.days, second.days);
+    swap(first.weeklyBudget, second.weeklyBudget);
+    swap(first.caloriesPerDay, second.caloriesPerDay);
+    swap(first.constraints, second.constraints);
+}
+
+bool MealPlan::passesConstraints(const std::vector<Recipe>& todayRecipesSoFar, const Recipe& candidate) const {
+    for (const auto& constraint : constraints) {
+        if (!constraint->isValid(days, todayRecipesSoFar, candidate)) {
+            return false;
+        }
+    }
+    return true;
 }
