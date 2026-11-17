@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <memory>
 
 // the library under test; include/ comes from oop
 #include "DayMeals.h"
@@ -23,6 +24,9 @@
 #include "Recipes.h"
 #include "ShoppingList.h"
 #include "UserChoices.h"
+#include "PlanConstraint.h"
+#include "MealBalanceConstraint.h"
+#include "NutritionTargetConstraint.h"
 
 namespace {
     bool nearlyEqual(double a, double b) {
@@ -1268,6 +1272,153 @@ namespace {
                                 "a_item (1 - pieces) (1.00 lei)\n"
                                 "Total: 4.00 lei\n");
     }
+
+    void testNutritionLimits() {
+        // 2000 kcal, 90 g protein, 250 g carbs, 70 g fats, 45 g sugar
+        const Nutrition day{2000, 90, 250, 70, 45};
+        // maximum: a value above its limit fails; a limit of 0 means no limit; equal is fine
+        assert(day.fitsUnder(Nutrition{0, 0, 0, 0, 50}));
+        assert(!day.fitsUnder(Nutrition{0, 0, 0, 0, 40}));
+        assert(day.fitsUnder(Nutrition{0, 0, 0, 0, 0}));
+        assert(day.fitsUnder(Nutrition{0, 0, 250, 0, 0}));
+        assert(!day.fitsUnder(Nutrition{0, 0, 249, 0, 0}));
+        assert(!day.fitsUnder(Nutrition{1999, 0, 0, 0, 0}));
+        assert(!day.fitsUnder(Nutrition{0, 89, 0, 0, 0}));
+        assert(!day.fitsUnder(Nutrition{0, 0, 0, 69, 0}));
+        // minimum: a value below its minimum fails; a minimum of 0 is always reached; equal is fine
+        assert(day.reaches(Nutrition{0, 80, 0, 0, 0}));
+        assert(!day.reaches(Nutrition{0, 100, 0, 0, 0}));
+        assert(day.reaches(Nutrition{0, 0, 0, 0, 0}));
+        assert(day.reaches(Nutrition{0, 90, 0, 0, 0}));
+        assert(!day.reaches(Nutrition{0, 0, 0, 0, 46}));
+        assert(!day.reaches(Nutrition{2001, 0, 0, 0, 0}));
+    }
+
+    // a recipe that only has calories (enough for the balance rule)
+    Recipe kcalRecipe(const std::string& name, double kcal) {
+        return Recipe{name, "lunch", {}, Nutrition{kcal, 0, 0, 0, 0}, 1};
+    }
+
+    void testMealBalanceConstraint() {
+        // used the way MealPlan uses it: through a pointer to the base class
+        const std::unique_ptr<PlanConstraint> balance = std::make_unique<MealBalanceConstraint>();
+        const std::vector<DayMeals> noDays;
+        const Recipe schnitzel = kcalRecipe("schnitzel", 780);
+        const Recipe consomme = kcalRecipe("consomme", 120);
+        const Recipe porridge = kcalRecipe("porridge", 611);
+
+        // the first meal of the day has nothing to compare with
+        assert(balance->isValid(noDays, {}, schnitzel));
+        assert(balance->isValid(noDays, {}, consomme));
+        // more than 3x in either direction is rejected
+        assert(!balance->isValid(noDays, {schnitzel}, consomme));
+        assert(!balance->isValid(noDays, {consomme}, schnitzel));
+        assert(balance->isValid(noDays, {schnitzel}, porridge));
+        // exactly 3x is still allowed
+        assert(balance->isValid(noDays, {kcalRecipe("a", 300)}, kcalRecipe("b", 900)));
+        assert(!balance->isValid(noDays, {kcalRecipe("a", 300)}, kcalRecipe("b", 901)));
+        // compared with every meal so far, not only the last one
+        assert(!balance->isValid(noDays, {schnitzel, porridge}, consomme));
+        assert(!balance->isValid(noDays, {porridge, schnitzel}, kcalRecipe("small", 250)));
+
+        // a clone answers the same way
+        const std::unique_ptr<PlanConstraint> copy = balance->clone();
+        assert(copy != nullptr && copy.get() != balance.get());
+        assert(!copy->isValid(noDays, {schnitzel}, consomme));
+        assert(copy->isValid(noDays, {schnitzel}, porridge));
+    }
+
+    std::vector<std::unique_ptr<PlanConstraint>> onlyBalance() {
+        std::vector<std::unique_ptr<PlanConstraint>> constraints;
+        constraints.push_back(std::make_unique<MealBalanceConstraint>());
+        return constraints;
+    }
+
+    void testMealPlanWithBalance() {
+        // target 6000: lunch l7 (760), half = (6000 - 760) / 2 = 2620, breakfast b7 (470);
+        // "feast" (2500 kcal, 1 leu) is the dinner closest to 2620, but 2500 > 3 x 760
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("feast", "dinner", 2500, 1);
+
+        const MealPlan noRules{70, 6000, catalogOf(rows)};
+        assert(noRules.weekCompleted());
+        assert(timesServed(dayText(printed(noRules), 1), "feast") == 1);
+
+        const MealPlan balanced{70, 6000, catalogOf(rows), onlyBalance()};
+        assert(balanced.weekCompleted());
+        const std::string output = printed(balanced);
+        assert(timesServed(output, "feast") == 0);
+        assert(timesServed(dayText(output, 1), "d7") == 1);
+
+        // no constraints passed (the default {}) keeps the old behaviour
+        const MealPlan none{70, 6000, catalogOf(rows), {}};
+        assert(printed(none) == printed(noRules));
+    }
+
+    // a recipe with calories, protein and sugar
+    Recipe nutrientRecipe(const std::string& name, double protein, double sugar) {
+        return Recipe{name, "lunch", {}, Nutrition{500, protein, 0, 0, sugar}, 1};
+    }
+
+    void testNutritionTargetConstraint() {
+        // at least 80 g protein and at most 50 g sugar per day
+        const std::unique_ptr<PlanConstraint> target = std::make_unique<NutritionTargetConstraint>(
+            Nutrition{0, 80, 0, 0, 0}, Nutrition{0, 0, 0, 0, 50});
+        const std::vector<DayMeals> noDays;
+        const Recipe lean = nutrientRecipe("lean", 30, 10);
+        const Recipe sweet = nutrientRecipe("sweet", 5, 45);
+        const Recipe rich = nutrientRecipe("rich", 40, 5);
+
+        // a maximum is checked at every meal: 45 + 10 > 50
+        assert(target->isValid(noDays, {}, sweet));
+        assert(!target->isValid(noDays, {lean}, sweet));
+        // the minimum is not judged before the last meal: 30 g protein is fine for now
+        assert(target->isValid(noDays, {}, lean));
+        assert(target->isValid(noDays, {lean}, lean));
+        // last meal (third): 30 + 30 + 30 = 90 >= 80 is reached, 30 + 30 + 5 = 65 is not
+        assert(target->isValid(noDays, {lean, lean}, lean));
+        assert(!target->isValid(noDays, {lean, lean}, nutrientRecipe("low", 5, 0)));
+        // exactly the minimum is enough: 40 + 30 + 10 = 80
+        assert(target->isValid(noDays, {rich, lean}, nutrientRecipe("ten", 10, 0)));
+
+        // no targets at all (0 everywhere): every day is fine, also the last meal
+        const NutritionTargetConstraint none{Nutrition{0, 0, 0, 0, 0}, Nutrition{0, 0, 0, 0, 0}};
+        const PlanConstraint& noTargets = none;
+        assert(noTargets.isValid(noDays, {lean, lean}, nutrientRecipe("low", 5, 0)));
+        assert(noTargets.isValid(noDays, {sweet, sweet}, sweet));
+
+        // a clone keeps the user's targets
+        const std::unique_ptr<PlanConstraint> copy = target->clone();
+        assert(!copy->isValid(noDays, {lean}, sweet));
+        assert(!copy->isValid(noDays, {lean, lean}, nutrientRecipe("low", 5, 0)));
+        assert(copy->isValid(noDays, {lean, lean}, lean));
+    }
+
+    void testMealPlanCopyWithConstraints() {
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("feast", "dinner", 2500, 1);
+        const MealPlan balanced{70, 6000, catalogOf(rows), onlyBalance()};
+        const std::string expected = printed(balanced);
+
+        // copy constructor: the copy clones the constraints (ASan/Valgrind catch a double delete)
+        const MealPlan copy = balanced;
+        assert(printed(copy) == expected);
+        // scaled() copies the plan too
+        const MealPlan doubled = balanced.scaled(2);
+        assert(doubled.weekCompleted());
+        assert(printed(balanced) == expected);
+
+        // operator=: the old plan and its constraints are replaced, the source stays the same
+        MealPlan target{70, 1300, catalogOf(weekRows())};
+        assert(printed(target) != expected);
+        target = balanced;
+        assert(printed(target) == expected);
+        assert(printed(balanced) == expected);
+        // assigning a temporary (copy-and-swap takes it by value)
+        target = MealPlan{7, 2000, catalogOf(weekRows()), onlyBalance()};
+        assert(!target.weekCompleted());
+        assert(printed(target) == noPlan);
+    }
 }
 
 // checked through the public interface only
@@ -1314,6 +1465,11 @@ int main() {
     testPantryReader();
     testShoppingListPantry();
     testShoppingListSort();
+    testNutritionLimits();
+    testMealBalanceConstraint();
+    testMealPlanWithBalance();
+    testMealPlanCopyWithConstraints();
+    testNutritionTargetConstraint();
 
     return 0;
 }
