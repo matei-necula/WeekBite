@@ -33,9 +33,9 @@ std::string categoryToText(Category category) {
 }
 
 Recipe::Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients,
-               const Nutrition& nutrition, int servings) : name(name), category(categoryFromText(categoryText)),
+               const Nutrition& nutrition, int servings, int prepTime) : name(name), category(categoryFromText(categoryText)),
                                                            ingredients(ingredients), nutrition(nutrition),
-                                                           servings(servings) {
+                                                           servings(servings), prepMinutes(prepTime) {
 }
 
 double Recipe::recipePrice() const {
@@ -44,6 +44,10 @@ double Recipe::recipePrice() const {
         total += ing.recipePrice();
     }
     return total;
+}
+
+bool Recipe::takesAtMost(int minutes) const {
+    return prepMinutes <= minutes;
 }
 
 std::ostream& operator<<(std::ostream& os, const Recipe& recipe) {
@@ -80,7 +84,8 @@ Recipe::Recipe(const Recipe& other)
       category(other.category),
       ingredients(other.ingredients),
       nutrition(other.nutrition),
-      servings(other.servings) {
+      servings(other.servings),
+      prepMinutes(other.prepMinutes) {
 }
 
 Recipe& Recipe::operator=(const Recipe& other) {
@@ -93,6 +98,7 @@ Recipe& Recipe::operator=(const Recipe& other) {
     ingredients = other.ingredients;
     nutrition = other.nutrition;
     servings = other.servings;
+    prepMinutes = other.prepMinutes;
     return *this;
 }
 

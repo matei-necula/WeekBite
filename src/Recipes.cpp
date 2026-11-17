@@ -23,7 +23,7 @@ const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) co
 Recipes::Recipes(const std::map<std::string, double>& prices,
                  const std::vector<RecipeRow>& recipeRows,
                  const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe) {
-    for (const auto& [name, categoryText, nutrition]: recipeRows) {
+    for (const auto& [name, categoryText, nutrition, prepMinutes]: recipeRows) {
         std::vector<Ingredient> ingredients;
         const auto found = ingredientsByRecipe.find(name); // ask map
         if (found != ingredientsByRecipe.end()) {
@@ -36,7 +36,7 @@ Recipes::Recipes(const std::map<std::string, double>& prices,
                 ingredients.push_back(Ingredient(price, ingredientName, unit, amount));
             }
         }
-        const Recipe recipe{name, categoryText, ingredients, nutrition, 1};
+        const Recipe recipe{name, categoryText, ingredients, nutrition, 1, prepMinutes};
         if (categoryText == "breakfast") {
             breakfasts.push_back(recipe);
         } else if (categoryText == "lunch") {

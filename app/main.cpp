@@ -11,6 +11,7 @@
 #include <memory>
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
+#include "WeekdayPrepTimeConstraint.h"
 
 // a line between what the user types and what the program shows
 void printSeparator() {
@@ -82,6 +83,16 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
             Nutrition{0, minProtein, 0, 0, 0},
             Nutrition{0, 0, maxCarbs, maxFats, maxSugar}));
     }
+    std::cout << "Limit the cooking time per meal? (y/n): ";
+    std::cin >> choice;
+    if (choice == 'y') {
+        const double minutes = readNonNegative("Maximum minutes per meal: ");
+        std::cout << "Only on weekdays (Monday-Friday)? (n = limit time in weekends too) (y/n): ";
+        char weekdaysAnswer = 'n';
+        std::cin >> weekdaysAnswer;
+        constraints.push_back(
+            std::make_unique<WeekdayPrepTimeConstraint>(static_cast<int>(minutes), weekdaysAnswer == 'y'));
+    }
     return constraints;
 }
 
@@ -151,7 +162,7 @@ int main() {
         prices[row["name"].get<std::string>()] = row["price"].get<double>();
     }
 
-    // recipes.csv  →  name,category,calories,protein,carbohydrates,fats,sugar
+    // recipes.csv  →  name,category,calories,protein,carbohydrates,fats,sugar,prep_time_min
     std::vector<RecipeRow> recipeRows;
     csv::CSVReader recipesFile{"assets/recipes.csv"};
     for (csv::CSVRow& row: recipesFile) {
@@ -163,7 +174,8 @@ int main() {
                                     row["carbohydrates"].get<double>(),
                                     row["fats"].get<double>(),
                                     row["sugar"].get<double>()
-                                });
+                                },
+                                row["prep_time_min"].get<int>());
     }
 
     // recipe_ingredients.csv  →  recipe,ingredient,amount,unit

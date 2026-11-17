@@ -26,10 +26,11 @@ class Recipe {
     std::vector<Ingredient> ingredients; // Recipe owns its own copies (composition)
     Nutrition nutrition; // per serving, so it does not change when the recipe is scaled
     int servings; // 1 in recipes.csv; only a scaled() copy has more
+    int prepMinutes;
 public:
     // const& kept on purpose (clang-tidy suggests pass by value + std::move)
     Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients,
-           const Nutrition& nutrition, int servings);
+           const Nutrition& nutrition, int servings, int prepMinutes);
 
     // Tema 1 asks for these on one class; written by hand even though the generated ones would do the same
     Recipe(const Recipe& other);
@@ -49,6 +50,8 @@ public:
     bool questionName(const std::string& text) const;
 
     bool questionIngredient(const std::string& ingredient) const;
+
+    bool takesAtMost(int minutes) const;
 
     void printShort(std::ostream& os) const;
 

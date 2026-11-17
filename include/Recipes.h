@@ -15,7 +15,7 @@
 #include "UserChoices.h"
 
 // one row of recipes.csv: name, category text, nutrition per serving
-using RecipeRow = std::tuple<std::string, std::string, Nutrition>;
+using RecipeRow = std::tuple<std::string, std::string, Nutrition, int>;
 // one row of recipe_ingredients.csv, without the recipe name: ingredient, amount, unit
 using IngredientRow = std::tuple<std::string, double, std::string>;
 
