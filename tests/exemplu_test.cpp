@@ -28,6 +28,8 @@
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
 #include "WeekdayPrepTimeConstraint.h"
+#include "DietRestrictionConstraint.h"
+#include "textHelper.h"
 
 namespace {
     bool nearlyEqual(double a, double b) {
@@ -268,8 +270,9 @@ namespace {
 
     // a small catalog in the shape main will hand over (no cinnamon price on purpose)
     Recipes smallCatalog() {
-        const std::map<std::string, double> prices{
-            {"oats", 1.50}, {"milk", 0.80}, {"banana", 1.17}, {"chicken_breast", 3.40}, {"eggs", 1.20},
+        const std::map<std::string, IngredientInfo> prices{
+            {"oats", {1.50, {}, {}}}, {"milk", {0.80, {}, {}}}, {"banana", {1.17, {}, {}}},
+            {"chicken_breast", {3.40, {}, {}}}, {"eggs", {1.20, {}, {}}},
         };
         const std::vector<RecipeRow> recipeRows{
             {"oatmeal_banana", "breakfast", Nutrition{549, 21.5, 90.5, 13.1, 24.9}, 10},
@@ -488,11 +491,11 @@ namespace {
     using PlanRow = std::tuple<std::string, std::string, double, double>;
 
     Recipes catalogOf(const std::vector<PlanRow>& rows) {
-        std::map<std::string, double> prices;
+        std::map<std::string, IngredientInfo> prices;
         std::vector<RecipeRow> recipeRows;
         std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
         for (const auto& [name, category, kcal, price] : rows) {
-            prices[name + "_ing"] = price;
+            prices[name + "_ing"] = {price, {}, {}};
             recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0}, 10);
             ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
         }
@@ -827,7 +830,7 @@ namespace {
 
     void testSearchKeepsOrderOnTies() {
         // two lunches with the same price: stable sort keeps them in catalog order
-        const std::map<std::string, double> prices{{"rice", 1.00}};
+        const std::map<std::string, IngredientInfo> prices{{"rice", {1.00, {}, {}}}};
         const std::vector<RecipeRow> recipeRows{
             {"rice_one", "lunch", Nutrition{500, 10, 100, 1, 0}, 10},
             {"rice_two", "lunch", Nutrition{400, 10, 80, 1, 0}, 10},
@@ -1458,11 +1461,11 @@ namespace {
         // (every other test recipe takes 10)
         std::vector<PlanRow> rows = weekRows();
         rows.emplace_back("roast", "lunch", 800, 1);
-        std::map<std::string, double> prices;
+        std::map<std::string, IngredientInfo> prices;
         std::vector<RecipeRow> recipeRows;
         std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
         for (const auto& [name, category, kcal, price] : rows) {
-            prices[name + "_ing"] = price;
+            prices[name + "_ing"] = {price, {}, {}};
             recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0}, name == "roast" ? 90 : 10);
             ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
         }
@@ -1481,6 +1484,153 @@ namespace {
         const MealPlan everyDay{70, 2000, catalog, onlyPrepTime(false)};
         assert(everyDay.weekCompleted());
         assert(timesServed(printed(everyDay), "roast") == 0);
+    }
+
+    void testSplitText() {
+        assert((splitText("vegan;vegetarian", ';') == std::vector<std::string>{"vegan", "vegetarian"}));
+        assert((splitText("red meat;pork", ';') == std::vector<std::string>{"red meat", "pork"}));
+        assert((splitText("vegan", ',') == std::vector<std::string>{"vegan"}));
+        // empty pieces are skipped, an empty text gives nothing
+        assert((splitText("vegan,,nopork,", ',') == std::vector<std::string>{"vegan", "nopork"}));
+        assert(splitText("", ';').empty());
+    }
+
+    void testIngredientTags() {
+        const Ingredient bread{1.0, "bread", "g", 100, {"vegan", "vegetarian"}, {"gluten"}};
+        assert(bread.isSuitableFor("vegan"));
+        assert(bread.isSuitableFor("vegetarian"));
+        assert(bread.hasTag("gluten"));
+        assert(!bread.hasTag("lactose"));
+        // no tags at all (the default): suitable for nothing, contains nothing
+        const Ingredient chicken{3.40, "chicken_breast", "g", 200};
+        assert(!chicken.isSuitableFor("vegetarian"));
+        assert(!chicken.hasTag("pork"));
+        // the tags are copied with the ingredient
+        const Ingredient copy = bread;
+        assert(copy.isSuitableFor("vegan") && copy.hasTag("gluten"));
+    }
+
+    // tags used below: tofu (vegan, vegetarian), cheese (vegetarian, lactose), bread (vegan, vegetarian, gluten),
+    // bacon (red meat, pork), beef (red meat)
+    Ingredient taggedIngredient(const std::string& name) {
+        if (name == "tofu") { return Ingredient{1, name, "g", 100, {"vegan", "vegetarian"}, {}}; }
+        if (name == "cheese") { return Ingredient{1, name, "g", 100, {"vegetarian"}, {"lactose"}}; }
+        if (name == "bread") { return Ingredient{1, name, "g", 100, {"vegan", "vegetarian"}, {"gluten"}}; }
+        if (name == "bacon") { return Ingredient{1, name, "g", 100, {}, {"red meat", "pork"}}; }
+        return Ingredient{1, name, "g", 100, {}, {"red meat"}};
+    }
+
+    Recipe taggedRecipe(const std::string& name, const std::vector<std::string>& parts) {
+        std::vector<Ingredient> ingredients;
+        for (const std::string& ingredientName : parts) {
+            ingredients.push_back(taggedIngredient(ingredientName));
+        }
+        return Recipe{name, "lunch", ingredients, Nutrition{500, 0, 0, 0, 0}, 1, 10};
+    }
+
+    void testRecipeTags() {
+        const Recipe tofuToast = taggedRecipe("tofu_toast", {"tofu", "bread"});
+        const Recipe cheeseToast = taggedRecipe("cheese_toast", {"cheese", "bread"});
+        // every ingredient must be suitable
+        assert(tofuToast.allIngredientsSuitableFor("vegan"));
+        assert(!cheeseToast.allIngredientsSuitableFor("vegan"));
+        assert(cheeseToast.allIngredientsSuitableFor("vegetarian"));
+        // one ingredient with the tag is enough
+        assert(tofuToast.containsAny("gluten"));
+        assert(cheeseToast.containsAny("lactose"));
+        assert(!tofuToast.containsAny("lactose"));
+        // a recipe without ingredients contains nothing and fits every diet
+        const Recipe water = taggedRecipe("water", {});
+        assert(water.allIngredientsSuitableFor("vegan"));
+        assert(!water.containsAny("gluten"));
+    }
+
+    void testDietFromText() {
+        assert(dietFromText("vegan") == Diet::vegan);
+        assert(dietFromText("vegetarian") == Diet::vegetarian);
+        assert(dietFromText("glutenfree") == Diet::glutenFree);
+        assert(dietFromText("lactosefree") == Diet::lactoseFree);
+        assert(dietFromText("nopork") == Diet::noPork);
+        assert(dietFromText("noredmeat") == Diet::noRedMeat);
+        // any case
+        assert(dietFromText("Vegan") == Diet::vegan);
+        assert(dietFromText("NoRedMeat") == Diet::noRedMeat);
+        const std::string unknown[] = {"vegn", "", "no pork", "glutenfree "};
+        for (const std::string& text : unknown) {
+            bool threw = false;
+            try {
+                (void) dietFromText(text);
+            } catch (const std::invalid_argument&) {
+                threw = true;
+            }
+            assert(threw && "an unknown diet name must throw");
+        }
+    }
+
+    bool dietAccepts(Diet diet, const Recipe& recipe) {
+        const std::unique_ptr<PlanConstraint> constraint = std::make_unique<DietRestrictionConstraint>(diet);
+        return constraint->isValid({}, {}, recipe);
+    }
+
+    void testDietRestrictionConstraint() {
+        const Recipe tofuToast = taggedRecipe("tofu_toast", {"tofu", "bread"});      // vegan, gluten
+        const Recipe cheeseSalad = taggedRecipe("cheese_salad", {"cheese", "tofu"});  // vegetarian, lactose
+        const Recipe blt = taggedRecipe("blt", {"bacon", "bread"});                   // pork, red meat, gluten
+        const Recipe steak = taggedRecipe("steak", {"beef"});                         // red meat, no pork
+
+        assert(dietAccepts(Diet::vegan, tofuToast));
+        assert(!dietAccepts(Diet::vegan, cheeseSalad));
+        assert(!dietAccepts(Diet::vegan, steak));
+        assert(dietAccepts(Diet::vegetarian, cheeseSalad));
+        assert(!dietAccepts(Diet::vegetarian, blt));
+        assert(!dietAccepts(Diet::glutenFree, tofuToast));
+        assert(dietAccepts(Diet::glutenFree, cheeseSalad));
+        assert(!dietAccepts(Diet::lactoseFree, cheeseSalad));
+        assert(dietAccepts(Diet::lactoseFree, tofuToast));
+        assert(!dietAccepts(Diet::noPork, blt));
+        assert(dietAccepts(Diet::noPork, steak));
+        assert(!dietAccepts(Diet::noRedMeat, blt));
+        assert(!dietAccepts(Diet::noRedMeat, steak));
+        assert(dietAccepts(Diet::noRedMeat, tofuToast));
+
+        // a clone keeps the diet
+        const std::unique_ptr<PlanConstraint> glutenFree = std::make_unique<DietRestrictionConstraint>(Diet::glutenFree);
+        const std::unique_ptr<PlanConstraint> copy = glutenFree->clone();
+        assert(!copy->isValid({}, {}, tofuToast));
+        assert(copy->isValid({}, {}, cheeseSalad));
+    }
+
+    void testMealPlanWithDiet() {
+        // weekRows plus a pork lunch that is exactly 40% of 2000 kcal, so it would be Monday's lunch
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("pork_roast", "lunch", 800, 1);
+        std::map<std::string, IngredientInfo> info;
+        std::vector<RecipeRow> recipeRows;
+        std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
+        for (const auto& [name, category, kcal, price] : rows) {
+            const std::vector<std::string> contains =
+                name == "pork_roast" ? std::vector<std::string>{"red meat", "pork"} : std::vector<std::string>{};
+            info[name + "_ing"] = {price, {}, contains};
+            recipeRows.emplace_back(name, category, Nutrition{kcal, 0, 0, 0, 0}, 10);
+            ingredientsByRecipe[name] = {{name + "_ing", 1, "pieces"}};
+        }
+        const Recipes catalog{info, recipeRows, ingredientsByRecipe};
+
+        const MealPlan anything{70, 2000, catalog};
+        assert(timesServed(dayText(printed(anything), 1), "pork_roast") == 1);
+
+        std::vector<std::unique_ptr<PlanConstraint>> noPork;
+        noPork.push_back(std::make_unique<DietRestrictionConstraint>(Diet::noPork));
+        const MealPlan withoutPork{70, 2000, catalog, std::move(noPork)};
+        assert(withoutPork.weekCompleted());
+        assert(timesServed(printed(withoutPork), "pork_roast") == 0);
+
+        // vegan: no test ingredient is tagged vegan, so not even one day can be built
+        std::vector<std::unique_ptr<PlanConstraint>> vegan;
+        vegan.push_back(std::make_unique<DietRestrictionConstraint>(Diet::vegan));
+        const MealPlan veganPlan{70, 2000, catalog, std::move(vegan)};
+        assert(!veganPlan.weekCompleted());
+        assert(printed(veganPlan) == noPlan);
     }
 
     void testMealPlanCopyWithConstraints() {
@@ -1562,6 +1712,12 @@ int main() {
     testRecipeTakesAtMost();
     testWeekdayPrepTimeConstraint();
     testMealPlanWithPrepTime();
+    testSplitText();
+    testIngredientTags();
+    testRecipeTags();
+    testDietFromText();
+    testDietRestrictionConstraint();
+    testMealPlanWithDiet();
 
     return 0;
 }
