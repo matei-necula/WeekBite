@@ -5,7 +5,7 @@
 #include "WeekdayPrepTimeConstraint.h"
 
 WeekdayPrepTimeConstraint::WeekdayPrepTimeConstraint(int maxMinutes, bool weekdaysOnly)
-    : maxMinutes(maxMinutes), weekdaysOnly(weekdaysOnly) {
+    : PlanConstraint("Cooking time"), maxMinutes(maxMinutes), weekdaysOnly(weekdaysOnly) {
 }
 
 bool WeekdayPrepTimeConstraint::isValid_(const std::vector<DayMeals>& previousDays,
@@ -20,7 +20,7 @@ bool WeekdayPrepTimeConstraint::isValid_(const std::vector<DayMeals>& previousDa
 }
 
 void WeekdayPrepTimeConstraint::print_(std::ostream& os) const {
-    os << "Cooking time: at most " << maxMinutes << " min per meal";
+    os << "at most " << maxMinutes << " min per meal";
     if (weekdaysOnly) {
         os << ", Monday-Friday";
     } else {

@@ -43,7 +43,7 @@ std::string dietToText(Diet diet) {
 }
 
 DietRestrictionConstraint::DietRestrictionConstraint(Diet diet)
-    : diet(diet) {
+    : PlanConstraint("Diet"), diet(diet) {
 }
 
 bool DietRestrictionConstraint::isValid_(const std::vector<DayMeals>& /*previousDays*/,
@@ -71,7 +71,7 @@ bool DietRestrictionConstraint::allows(const Recipe& wantToAdd) const {
 }
 
 void DietRestrictionConstraint::print_(std::ostream& os) const {
-    os << "Diet: " << dietToText(diet);
+    os << dietToText(diet);
 }
 
 std::unique_ptr<PlanConstraint> DietRestrictionConstraint::clone() const {

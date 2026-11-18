@@ -5,7 +5,7 @@
 #include "NutritionTargetConstraint.h"
 
 NutritionTargetConstraint::NutritionTargetConstraint(const Nutrition& minim, const Nutrition& maxim)
-    : minim(minim), maxim(maxim) {
+    : PlanConstraint("Daily nutrition"), minim(minim), maxim(maxim) {
 }
 
 bool NutritionTargetConstraint::isValid_(const std::vector<DayMeals> & /*previousDays*/,
@@ -27,7 +27,6 @@ bool NutritionTargetConstraint::isValid_(const std::vector<DayMeals> & /*previou
 }
 
 void NutritionTargetConstraint::print_(std::ostream& os) const {
-    os << "Daily nutrition: ";
     os << "minimum: ";
     minim.printNonZero(os);
     os << "; ";

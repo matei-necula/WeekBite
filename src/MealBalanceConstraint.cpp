@@ -4,6 +4,9 @@
 
 #include "MealBalanceConstraint.h"
 
+MealBalanceConstraint::MealBalanceConstraint() : PlanConstraint("Balanced meals") {
+}
+
 bool MealBalanceConstraint::isValid_(const std::vector<DayMeals>& /*previousDays*/,
                                       const std::vector<Recipe>& todayRecipesSoFar,
                                       const Recipe& wantToAdd) const {
@@ -25,7 +28,7 @@ bool MealBalanceConstraint::isValid_(const std::vector<DayMeals>& /*previousDays
 }
 
 void MealBalanceConstraint::print_(std::ostream& os) const {
-    os << "Balanced meals: no meal more than " << maxRatio << "x the calories of another";
+    os << "no meal more than " << maxRatio << "x the calories of another";
 }
 
 std::unique_ptr<PlanConstraint> MealBalanceConstraint::clone() const {

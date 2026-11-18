@@ -10,14 +10,21 @@
 #include "Recipe.h"
 #include <memory>
 #include <ostream>
+#include <string>
 
 class PlanConstraint {
+    std::string name; // what the rule is about, printed before ':' (e.g. "Diet")
+
     virtual bool isValid_(const std::vector<DayMeals>& previousDays, const std::vector<Recipe>& todayRecipesSoFar,
                           const Recipe& wantToAdd) const = 0;
 
-    //writes this rule in one line, without '\n' (e.g. "Diet: vegan");
+    //writes this rule's details in one line, without '\n' (e.g. "vegan"; operator<< writes "Diet: " before it);
     // called only by operator<< below (NVI, like isValid -> isValid_)
     virtual void print_(std::ostream& os) const = 0;
+
+    protected:
+    // only the derived rules build a PlanConstraint, so the constructor is protected.
+    explicit PlanConstraint(const std::string& name);
 
 public:
     bool isValid(const std::vector<DayMeals>& previousDays,

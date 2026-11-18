@@ -4,6 +4,9 @@
 
 #include "PlanConstraint.h"
 
+PlanConstraint::PlanConstraint(const std::string& name) : name(name) {
+}
+
 bool PlanConstraint::isValid(const std::vector<DayMeals>& previousDays,
                               const std::vector<Recipe>& todayRecipesSoFar,
                               const Recipe& wantToAdd) const {
@@ -11,6 +14,7 @@ bool PlanConstraint::isValid(const std::vector<DayMeals>& previousDays,
 }
 
 std::ostream& operator<<(std::ostream& os, const PlanConstraint& constraint) {
+    os << constraint.name << ": ";
     constraint.print_(os);
     return os;
 }
