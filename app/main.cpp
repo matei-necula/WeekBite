@@ -11,6 +11,7 @@
 #include <memory>
 #include "Errors.h"
 #include "DietRestrictionConstraint.h"
+#include "ExcludedIngredientsConstraint.h"
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
 #include "WeekdayPrepTimeConstraint.h"
@@ -118,6 +119,15 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
                 std::cout << e.what() << '\n';
             }
         }
+    }
+    std::cout << "Exclude some ingredients? (y/n): ";
+    std::cin >> choice;
+    if (choice == 'y') {
+        std::cout << "Type them separated by commas, no spaces (e.g. mushroom,tuna): ";
+        std::string line;
+        std::cin >> line;
+        std::vector<std::string> excluded = splitText(toLowercase(line), ',');
+        constraints.push_back(std::make_unique<ExcludedIngredientsConstraint>(excluded));
     }
     return constraints;
 }

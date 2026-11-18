@@ -31,6 +31,7 @@
 #include "NutritionTargetConstraint.h"
 #include "WeekdayPrepTimeConstraint.h"
 #include "DietRestrictionConstraint.h"
+#include "ExcludedIngredientsConstraint.h"
 #include "textHelper.h"
 
 namespace {
@@ -1922,6 +1923,93 @@ namespace {
         const MealPlan doubled = withRules.scaled(2);
         assert(printed(doubled).rfind(header, 0) == 0);
     }
+
+    // ---- excluded ingredients: the 5th rule, added last without changing the other classes ----
+    std::vector<std::unique_ptr<PlanConstraint>> excludedRules(const std::vector<std::string>& excluded) {
+        std::vector<std::unique_ptr<PlanConstraint>> rules;
+        rules.push_back(std::make_unique<ExcludedIngredientsConstraint>(excluded));
+        return rules;
+    }
+
+    bool excludedAccepts(const std::vector<std::string>& excluded, const Recipe& recipe) {
+        const std::unique_ptr<PlanConstraint> rule = std::make_unique<ExcludedIngredientsConstraint>(excluded);
+        return rule->isValid({}, {}, recipe);
+    }
+
+    void testExcludedIngredientsConstraint() {
+        const Recipe mushroomSoup = taggedRecipe("mushroom_soup", {"mushroom", "cream"});
+        const Recipe tofuToast = taggedRecipe("tofu_toast", {"tofu", "bread"});
+        const Recipe chickenRice = taggedRecipe("chicken_rice", {"chicken_breast", "rice"});
+        const Recipe eggplantStew = taggedRecipe("eggplant_stew", {"eggplant"});
+        const Recipe tunaStyleRice = taggedRecipe("tuna_style_rice", {"rice"});
+
+        // one name: only the recipes with that ingredient are refused
+        assert(!excludedAccepts({"mushroom"}, mushroomSoup));
+        assert(excludedAccepts({"mushroom"}, tofuToast));
+        // several names: any one of them is enough, wherever it is in the list
+        assert(!excludedAccepts({"tuna", "mushroom"}, mushroomSoup));
+        assert(!excludedAccepts({"mushroom", "bread"}, tofuToast));
+        assert(excludedAccepts({"tuna", "mushroom"}, chickenRice));
+        // every ingredient of the recipe is looked at, not only the first
+        assert(!excludedAccepts({"cream"}, mushroomSoup));
+        // part of a name is enough (questionIngredient): "chicken" keeps out chicken_breast, "egg" also eggplant
+        assert(!excludedAccepts({"chicken"}, chickenRice));
+        assert(!excludedAccepts({"egg"}, eggplantStew));
+        // only the ingredients count, not the recipe's name
+        assert(excludedAccepts({"tuna"}, tunaStyleRice));
+        // an empty list refuses nothing
+        assert(excludedAccepts({}, mushroomSoup));
+
+        // the day and the meals already chosen today do not matter
+        const std::unique_ptr<PlanConstraint> noMushroom =
+            std::make_unique<ExcludedIngredientsConstraint>(std::vector<std::string>{"mushroom"});
+        assert(!noMushroom->isValid(daysBuilt(6), {tofuToast}, mushroomSoup));
+        assert(noMushroom->isValid(daysBuilt(6), {mushroomSoup}, tofuToast));
+        // a clone keeps the list
+        const std::unique_ptr<PlanConstraint> copy = noMushroom->clone();
+        assert(!copy->isValid({}, {}, mushroomSoup));
+        assert(copy->isValid({}, {}, tofuToast));
+    }
+
+    void testExcludedIngredientsOutput() {
+        // printed through a PlanConstraint pointer: "Excluded ingredients: " (operator<<) + the names (print_)
+        const std::unique_ptr<PlanConstraint> one =
+            std::make_unique<ExcludedIngredientsConstraint>(std::vector<std::string>{"tuna"});
+        assert(printed(*one) == "Excluded ingredients: tuna");
+        const std::unique_ptr<PlanConstraint> three =
+            std::make_unique<ExcludedIngredientsConstraint>(std::vector<std::string>{"mushroom", "tuna", "egg"});
+        assert(printed(*three) == "Excluded ingredients: mushroom, tuna, egg");
+        const std::unique_ptr<PlanConstraint> copy = three->clone();
+        assert(printed(*copy) == printed(*three));
+    }
+
+    void testMealPlanWithExcludedIngredients() {
+        // weekRows plus a mushroom lunch that is exactly 40% of 2000 kcal, so it would be Monday's lunch;
+        // catalogOf gives every recipe the single ingredient "<name>_ing" (here "mushroom_risotto_ing")
+        std::vector<PlanRow> rows = weekRows();
+        rows.emplace_back("mushroom_risotto", "lunch", 800, 1);
+        const Recipes catalog = catalogOf(rows);
+
+        const MealPlan anything{70, 2000, catalog};
+        assert(timesServed(dayText(printed(anything), 1), "mushroom_risotto") == 1);
+
+        const MealPlan noMushroom{70, 2000, catalog, excludedRules({"mushroom"})};
+        assert(hasSevenDays(noMushroom));
+        assert(timesServed(printed(noMushroom), "mushroom_risotto") == 0);
+        assert(printed(noMushroom).rfind("Rules:\n- Excluded ingredients: mushroom\n\nDay 1\n", 0) == 0);
+        // the copy and the scaled plan keep (clone) the rule
+        const MealPlan copy = noMushroom;
+        assert(printed(copy) == printed(noMushroom));
+        assert(timesServed(printed(noMushroom.scaled(2)), "mushroom_risotto") == 0);
+
+        // every recipe excluded: the week works without the rule, so the restrictions are blamed
+        // (the general message: no diet rule, so there is no per-meal detail)
+        assert(planFailure(70, 2000, catalog, excludedRules({"_ing"})) == restrictionsReason);
+        // 2 lunches excluded (l1_ing, l2_ing): 6 lunches are left for 7 days, and recipes are not repeated
+        assert(planFailure(70, 2000, catalog, excludedRules({"l1_", "l2_"})) == restrictionsReason);
+        // a small budget is still blamed on the budget, with the rule or without it
+        assert(planFailure(7, 2000, catalog, excludedRules({"mushroom"})) == budgetReason);
+    }
 }
 
 // checked through the public interface only
@@ -1985,6 +2073,9 @@ int main() {
     testDietAllowsMatchesIsValid();
     testConstraintOutput();
     testMealPlanPrintsRules();
+    testExcludedIngredientsConstraint();
+    testExcludedIngredientsOutput();
+    testMealPlanWithExcludedIngredients();
 
     return 0;
 }

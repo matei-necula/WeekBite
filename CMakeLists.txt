@@ -84,6 +84,7 @@ target_sources(${MAIN_LIBRARY_NAME}
         src/NutritionTargetConstraint.cpp
         src/WeekdayPrepTimeConstraint.cpp
         src/DietRestrictionConstraint.cpp
+        src/ExcludedIngredientsConstraint.cpp
         src/Errors.cpp
 )
 
