@@ -63,6 +63,10 @@ public:
     const std::vector<Ingredient>& giveIngredients() const;
 
     friend std::ostream& operator<<(std::ostream& os, const Recipe& recipe);
+
+    bool allIngredientsSuitableFor(const std::string& diet) const;   // every ingredient suitable
+
+    bool containsAny(const std::string& tag) const;                  // at least one ingredient has the tag
 };
 
 

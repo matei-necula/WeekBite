@@ -4,6 +4,7 @@
 
 #include "Ingredient.h"
 #include <stdexcept>
+#include <algorithm>
 #include <iomanip>
 
 namespace {
@@ -43,11 +44,14 @@ namespace {
     }
 }
 
-Ingredient::Ingredient(double price, const std::string& name, const std::string& unitText, double amount)
-        : ingredientPrice(price),
-        name(name),
-        unit(unitFromText(unitText)),
-        amount(amount) {
+Ingredient::Ingredient(double price, const std::string& name, const std::string& unitText, double amount,
+                       const std::vector<std::string>& suitableTags, const std::vector<std::string>& containsTags)
+    : ingredientPrice(price),
+      name(name),
+      unit(unitFromText(unitText)),
+      amount(amount),
+      suitableTags(suitableTags),
+      containsTags(containsTags) {
 }
 
 double Ingredient::recipePrice() const {
@@ -60,7 +64,7 @@ double Ingredient::recipePrice() const {
             // tbsp/tsp have no price; 0 makes Recipe print the "price may vary" note
             return 0;
         case Unit::pieces:
-            return ingredientPrice*amount;
+            return ingredientPrice * amount;
     }
     throw std::invalid_argument("Invalid unit");
 }
@@ -80,12 +84,12 @@ std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient) {
 
 void Ingredient::scale(int factor) {
     // checked before changing amount, so a bad factor leaves the ingredient untouched
-    if (factor<=0)
+    if (factor <= 0)
         throw std::invalid_argument("Invalid factor");
     amount *= factor;
 }
 
- const std::string& Ingredient::getName() const {
+const std::string& Ingredient::getName() const {
     return name;
 }
 
@@ -107,4 +111,16 @@ Ingredient& Ingredient::operator-=(const Ingredient& other) {
 
 bool Ingredient::isEmpty() const {
     return amount <= 0;
+}
+
+bool Ingredient::isSuitableFor(const std::string& diet) const {
+    if (std::find(suitableTags.begin(), suitableTags.end(), diet) != suitableTags.end())
+        return true;
+    return false;
+}
+
+bool Ingredient::hasTag(const std::string& tag) const {
+    if (std::find(containsTags.begin(), containsTags.end(), tag) != containsTags.end())
+        return true;
+    return false;
 }

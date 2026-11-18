@@ -20,7 +20,7 @@ const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) co
     throw std::invalid_argument("Invalid category");
 }
 
-Recipes::Recipes(const std::map<std::string, double>& prices,
+Recipes::Recipes(const std::map<std::string, IngredientInfo>& ingredientInfo,
                  const std::vector<RecipeRow>& recipeRows,
                  const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe) {
     for (const auto& [name, categoryText, nutrition, prepMinutes]: recipeRows) {
@@ -31,9 +31,15 @@ Recipes::Recipes(const std::map<std::string, double>& prices,
             for (const auto& [ingredientName, amount, unit]: found->second) {
                 // use
                 double price = 0;
-                const auto priceFound = prices.find(ingredientName);
-                if (priceFound != prices.end()) { price = priceFound->second; }
-                ingredients.push_back(Ingredient(price, ingredientName, unit, amount));
+                std::vector<std::string> suitable;
+                std::vector<std::string> contains;
+                const auto infoFound = ingredientInfo.find(ingredientName);
+                if (infoFound != ingredientInfo.end()) {
+                    suitable = std::get<1>(infoFound->second);
+                    contains = std::get<2>(infoFound->second);
+                    price = std::get<0>(infoFound->second);
+                }
+                ingredients.push_back(Ingredient(price, ingredientName, unit, amount, suitable, contains));
             }
         }
         const Recipe recipe{name, categoryText, ingredients, nutrition, 1, prepMinutes};

@@ -18,6 +18,8 @@
 using RecipeRow = std::tuple<std::string, std::string, Nutrition, int>;
 // one row of recipe_ingredients.csv, without the recipe name: ingredient, amount, unit
 using IngredientRow = std::tuple<std::string, double, std::string>;
+// one row of ingredients.csv, without the name: price, suitable_for tags, contains tags
+using IngredientInfo = std::tuple<double, std::vector<std::string>, std::vector<std::string>>;
 
 class Recipes {
     std::vector<Recipe> breakfasts;
@@ -25,7 +27,7 @@ class Recipes {
     std::vector<Recipe> dinners;
 
 public:
-    Recipes(const std::map<std::string, double>& prices,
+    Recipes(const std::map<std::string, IngredientInfo>& ingredientInfo,
             const std::vector<RecipeRow>& recipeRows,
             const std::map<std::string, std::vector<IngredientRow>>& ingredientsByRecipe);
     const std::vector<Recipe>& getRecipesFromCategory(Category category) const;

@@ -165,3 +165,19 @@ void Recipe::exportRecipeAndScaled(const std::string& fileName, const Recipe& sc
 const std::vector<Ingredient>& Recipe::giveIngredients() const {
     return ingredients;
 }
+
+bool Recipe::allIngredientsSuitableFor(const std::string& diet) const {
+    for (const Ingredient& ing : ingredients) {
+        if (!ing.isSuitableFor(diet))
+            return false;
+    }
+    return true;
+}
+
+bool Recipe::containsAny(const std::string& tag) const {
+    for (const Ingredient& ing : ingredients) {
+        if (ing.hasTag(tag))
+            return true;
+    }
+    return false;
+}

@@ -83,6 +83,7 @@ target_sources(${MAIN_LIBRARY_NAME}
         src/MealBalanceConstraint.cpp
         src/NutritionTargetConstraint.cpp
         src/WeekdayPrepTimeConstraint.cpp
+        src/DietRestrictionConstraint.cpp
 )
 
 # NOTE: Add all defined targets (e.g. executables, libraries, etc. )

@@ -9,9 +9,12 @@
 #include <iomanip>
 #include "ShoppingList.h"
 #include <memory>
+
+#include "DietRestrictionConstraint.h"
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
 #include "WeekdayPrepTimeConstraint.h"
+#include "textHelper.h"
 
 // a line between what the user types and what the program shows
 void printSeparator() {
@@ -93,6 +96,28 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
         constraints.push_back(
             std::make_unique<WeekdayPrepTimeConstraint>(static_cast<int>(minutes), weekdaysAnswer == 'y'));
     }
+    std::cout << "Any diet restrictions? (y/n): ";
+    std::cin >> choice;
+    if (choice == 'y') {
+        while (true) {
+            std::cout << "Type them separated by commas, no spaces "
+                         "(vegan,vegetarian,glutenfree,lactosefree,nopork,noredmeat): ";
+            std::string line;
+            std::cin >> line;
+            try {
+                std::vector<std::unique_ptr<PlanConstraint>> diets;
+                for (const std::string& piece : splitText(line, ',')) {
+                    diets.push_back(std::make_unique<DietRestrictionConstraint>(dietFromText(piece)));
+                }
+                for (std::unique_ptr<PlanConstraint>& diet : diets) {
+                    constraints.push_back(std::move(diet));
+                }
+                break;
+            } catch (const std::invalid_argument& e) {
+                std::cout << e.what() << '\n';
+            }
+        }
+    }
     return constraints;
 }
 
@@ -155,11 +180,14 @@ void shoppingListQuestion(const MealPlan& plan) {
 int main() {
     // ---------- 1. read the 3 CSV files (assets/ is copied next to the executable) ----------
 
-    // ingredients.csv  →  name,price
-    std::map<std::string, double> prices;
+    // ingredients.csv  →  name,price,suitable_for,contains
+    std::map<std::string, IngredientInfo> ingredientInfo;
     csv::CSVReader ingredientsFile{"assets/ingredients.csv"};
     for (csv::CSVRow& row: ingredientsFile) {
-        prices[row["name"].get<std::string>()] = row["price"].get<double>();
+        ingredientInfo[row["name"].get<std::string>()] = {
+            row["price"].get<double>(), splitText(row["suitable_for"].get<std::string>(), ';'),
+            splitText(row["contains"].get<std::string>(), ';')
+        };
     }
 
     // recipes.csv  →  name,category,calories,protein,carbohydrates,fats,sugar,prep_time_min
@@ -187,7 +215,7 @@ int main() {
                                                                            row["unit"].get<std::string>());
     }
 
-    const Recipes catalog{prices, recipeRows, ingredientsByRecipe};
+    const Recipes catalog{ingredientInfo, recipeRows, ingredientsByRecipe};
 
     char showCatalog = 'n';
     std::cout << "Show catalog? (y/n): ";

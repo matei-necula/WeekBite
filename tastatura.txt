@@ -5,10 +5,12 @@ p
 n
 n
 n
+n
 p
 350
 2500
 y
+n
 n
 n
 y
@@ -30,6 +32,7 @@ n
 n
 n
 n
+n
 y
 4
 y
@@ -42,6 +45,7 @@ p
 400
 3000
 y
+n
 n
 n
 y
@@ -103,6 +107,7 @@ n
 n
 n
 n
+n
 y
 back
 s
@@ -151,6 +156,7 @@ n
 n
 n
 n
+n
 p
 300
 2500
@@ -164,6 +170,7 @@ n
 n
 n
 n
+n
 p
 300
 2500
@@ -172,6 +179,19 @@ n
 y
 30
 y
+n
+n
+n
+n
+p
+300
+2500
+n
+n
+n
+y
+vegetarian,glutnfree
+vegetarian,glutenfree
 n
 n
 n
