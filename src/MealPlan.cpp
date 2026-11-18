@@ -119,6 +119,14 @@ MealPlan MealPlan::scaled(int newServings) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const MealPlan& plan) {
+    // the rules this plan follows, before the 7 days; nothing when there are none
+    if (!plan.constraints.empty()) {
+        os << "Rules:\n";
+        for (const auto& constraint: plan.constraints) {
+            os << "- " << *constraint << '\n';
+        }
+        os << '\n';
+    }
     double totalMoneySpent = 0;
     for (int i = 0; i < static_cast<int>(plan.days.size()); i++) {
         totalMoneySpent += plan.days[i].dayPrice();

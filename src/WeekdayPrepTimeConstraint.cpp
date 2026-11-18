@@ -19,6 +19,15 @@ bool WeekdayPrepTimeConstraint::isValid_(const std::vector<DayMeals>& previousDa
     return wantToAdd.takesAtMost(maxMinutes);
 }
 
+void WeekdayPrepTimeConstraint::print_(std::ostream& os) const {
+    os << "Cooking time: at most " << maxMinutes << " min per meal";
+    if (weekdaysOnly) {
+        os << ", Monday-Friday";
+    } else {
+        os << ", every day";
+    }
+}
+
 std::unique_ptr<PlanConstraint> WeekdayPrepTimeConstraint::clone() const {
     return std::make_unique<WeekdayPrepTimeConstraint>(*this);
 }

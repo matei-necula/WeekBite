@@ -14,12 +14,15 @@
 enum class Diet { vegan, vegetarian, glutenFree, lactoseFree, noPork, noRedMeat };
 // throws InputError for any other text
 Diet dietFromText(const std::string& text);
+// the opposite of dietFromText, for printing (Diet::glutenFree -> "gluten free")
+std::string dietToText(Diet diet);
 
 class DietRestrictionConstraint : public PlanConstraint {
     Diet diet;
 
     bool isValid_(const std::vector<DayMeals>& previousDays, const std::vector<Recipe>& todayRecipesSoFar,
                   const Recipe& wantToAdd) const override;
+    void print_(std::ostream& os) const override;
 
 public:
     explicit DietRestrictionConstraint(Diet diet);

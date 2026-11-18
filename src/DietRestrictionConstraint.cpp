@@ -24,6 +24,24 @@ Diet dietFromText(const std::string& text) {
      throw InputError("Unknown diet: " + text);
 }
 
+std::string dietToText(Diet diet) {
+    switch (diet) {
+        case Diet::vegan:
+            return "vegan";
+        case Diet::vegetarian:
+            return "vegetarian";
+        case Diet::glutenFree:
+            return "gluten-free";
+        case Diet::lactoseFree:
+            return "lactose-free";
+        case Diet::noPork:
+            return "no pork";
+        case Diet::noRedMeat:
+            return "no red meat";
+    }
+    throw InputError("Unknown diet");
+}
+
 DietRestrictionConstraint::DietRestrictionConstraint(Diet diet)
     : diet(diet) {
 }
@@ -46,6 +64,10 @@ bool DietRestrictionConstraint::isValid_(const std::vector<DayMeals>& /*previous
             return !wantToAdd.containsAny("red meat");
     }
     throw InputError("Unknown diet");
+}
+
+void DietRestrictionConstraint::print_(std::ostream& os) const {
+    os << "Diet: " << dietToText(diet);
 }
 
 std::unique_ptr<PlanConstraint> DietRestrictionConstraint::clone() const {

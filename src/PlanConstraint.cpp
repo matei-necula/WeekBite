@@ -9,3 +9,8 @@ bool PlanConstraint::isValid(const std::vector<DayMeals>& previousDays,
                               const Recipe& wantToAdd) const {
     return isValid_(previousDays, todayRecipesSoFar, wantToAdd);
 }
+
+std::ostream& operator<<(std::ostream& os, const PlanConstraint& constraint) {
+    constraint.print_(os);
+    return os;
+}

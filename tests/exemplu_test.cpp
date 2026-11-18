@@ -14,6 +14,7 @@
 #include <vector>
 #include <stdexcept>
 #include <memory>
+#include <utility>
 
 // the library under test; include/ comes from oop
 #include "DayMeals.h"
@@ -1669,6 +1670,83 @@ namespace {
         assert(reason == budgetReason);
         assert(printed(target) == plain);
     }
+
+    std::string printed(const PlanConstraint& constraint) {
+        std::ostringstream out;
+        out << constraint;
+        return out.str();
+    }
+
+    void testConstraintOutput() {
+        // every rule printed through a PlanConstraint pointer: operator<< -> the derived print_
+        std::vector<std::unique_ptr<PlanConstraint>> rules;
+        rules.push_back(std::make_unique<MealBalanceConstraint>());
+        rules.push_back(std::make_unique<NutritionTargetConstraint>(Nutrition{0, 100, 0, 0, 0},
+                                                                    Nutrition{0, 0, 300, 0, 50}));
+        rules.push_back(std::make_unique<WeekdayPrepTimeConstraint>(30, true));
+        rules.push_back(std::make_unique<WeekdayPrepTimeConstraint>(45, false));
+        rules.push_back(std::make_unique<DietRestrictionConstraint>(Diet::glutenFree));
+        const std::string expected[] = {
+            "Balanced meals: no meal more than 3x the calories of another",
+            "Daily nutrition: minimum: protein 100 g; maximum: carbohydrates 300 g, sugar 50 g",
+            "Cooking time: at most 30 min per meal, Monday-Friday",
+            "Cooking time: at most 45 min per meal, every day",
+            "Diet: gluten-free",
+        };
+        for (std::size_t i = 0; i < rules.size(); i++) {
+            assert(printed(*rules[i]) == expected[i]);
+            // the clone describes the same rule
+            const std::unique_ptr<PlanConstraint> clone = rules[i]->clone();
+            assert(printed(*clone) == expected[i]);
+        }
+
+        // only the values that are set; "none" when a side is empty; calories in kcal
+        const NutritionTargetConstraint noMinimum{Nutrition{0, 0, 0, 0, 0}, Nutrition{2000, 0, 0, 40, 0}};
+        assert(printed(noMinimum) == "Daily nutrition: minimum: none; maximum: calories 2000 kcal, fats 40 g");
+        const NutritionTargetConstraint nothingSet{Nutrition{0, 0, 0, 0, 0}, Nutrition{0, 0, 0, 0, 0}};
+        assert(printed(nothingSet) == "Daily nutrition: minimum: none; maximum: none");
+        const NutritionTargetConstraint everyValue{Nutrition{1, 2, 3, 4, 5}, Nutrition{0, 0, 0, 0, 0}};
+        assert(printed(everyValue) ==
+               "Daily nutrition: minimum: calories 1 kcal, protein 2 g, carbohydrates 3 g, fats 4 g, sugar 5 g; "
+               "maximum: none");
+
+        // every diet has its own text (dietToText) and the rule uses it
+        const std::pair<Diet, std::string> diets[] = {
+            {Diet::vegan, "vegan"}, {Diet::vegetarian, "vegetarian"}, {Diet::glutenFree, "gluten-free"},
+            {Diet::lactoseFree, "lactose-free"}, {Diet::noPork, "no pork"}, {Diet::noRedMeat, "no red meat"},
+        };
+        for (const auto& [diet, text] : diets) {
+            assert(dietToText(diet) == text);
+            const std::unique_ptr<PlanConstraint> rule = std::make_unique<DietRestrictionConstraint>(diet);
+            assert(printed(*rule) == "Diet: " + text);
+        }
+    }
+
+    void testMealPlanPrintsRules() {
+        // no rules: the plan starts with Day 1, no "Rules:" block
+        const MealPlan plain{70, 1300, catalogOf(weekRows())};
+        assert(printed(plain).rfind("Day 1\n", 0) == 0);
+        assert(printed(plain).find("Rules:") == std::string::npos);
+
+        // two rules: listed in the order they were given, then an empty line, then Day 1
+        std::vector<std::unique_ptr<PlanConstraint>> rules = onlyBalance();
+        rules.push_back(std::make_unique<DietRestrictionConstraint>(Diet::noPork));
+        const MealPlan withRules{70, 1300, catalogOf(weekRows()), std::move(rules)};
+        const std::string header = "Rules:\n"
+                                   "- Balanced meals: no meal more than 3x the calories of another\n"
+                                   "- Diet: no pork\n"
+                                   "\n"
+                                   "Day 1\n";
+        assert(printed(withRules).rfind(header, 0) == 0);
+        // the rules are printed once, and the days after them are the same as without rules
+        assert(printed(withRules).find("Rules:", 1) == std::string::npos);
+        assert(printed(withRules).substr(header.size() - 6) == printed(plain));
+        // copies and the scaled plan keep (clone) the rules, so they show them too
+        const MealPlan copy = withRules;
+        assert(printed(copy) == printed(withRules));
+        const MealPlan doubled = withRules.scaled(2);
+        assert(printed(doubled).rfind(header, 0) == 0);
+    }
 }
 
 // checked through the public interface only
@@ -1728,6 +1806,8 @@ int main() {
     testDietFromText();
     testDietRestrictionConstraint();
     testMealPlanWithDiet();
+    testConstraintOutput();
+    testMealPlanPrintsRules();
 
     return 0;
 }

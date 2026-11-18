@@ -30,6 +30,10 @@ public:
 
     double getCalories() const;
 
+    // only the values above 0, e.g. "protein 100 g, sugar 50 g"; "none" when all are 0
+    // (used by NutritionTargetConstraint to show its limits)
+    void printNonZero(std::ostream& os) const;
+
     friend std::ostream& operator<<(std::ostream& os, const Nutrition& nutrition);
 };
 

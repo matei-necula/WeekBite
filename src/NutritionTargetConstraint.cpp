@@ -26,6 +26,15 @@ bool NutritionTargetConstraint::isValid_(const std::vector<DayMeals> & /*previou
     return true;
 }
 
+void NutritionTargetConstraint::print_(std::ostream& os) const {
+    os << "Daily nutrition: ";
+    os << "minimum: ";
+    minim.printNonZero(os);
+    os << "; ";
+    os << "maximum: ";
+    maxim.printNonZero(os);
+}
+
 std::unique_ptr<PlanConstraint> NutritionTargetConstraint::clone() const {
     return std::make_unique<NutritionTargetConstraint>(minim, maxim);
 }

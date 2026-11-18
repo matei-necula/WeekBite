@@ -15,6 +15,7 @@ class NutritionTargetConstraint : public PlanConstraint {
 
     bool isValid_(const std::vector<DayMeals>& previousDays, const std::vector<Recipe>& todayRecipesSoFar,
                   const Recipe& wantToAdd) const override;
+    void print_(std::ostream& os) const override;
 
 public:
     NutritionTargetConstraint(const Nutrition& minima, const Nutrition& maxima);

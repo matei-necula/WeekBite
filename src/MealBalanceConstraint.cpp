@@ -7,7 +7,6 @@
 bool MealBalanceConstraint::isValid_(const std::vector<DayMeals>& /*previousDays*/,
                                       const std::vector<Recipe>& todayRecipesSoFar,
                                       const Recipe& wantToAdd) const {
-    constexpr double maxRatio = 3;
     const double nextRecipeCalories = wantToAdd.getNutrition().getCalories();
 
     for (const Recipe& meal : todayRecipesSoFar) {
@@ -23,6 +22,10 @@ bool MealBalanceConstraint::isValid_(const std::vector<DayMeals>& /*previousDays
         }
     }
     return true;
+}
+
+void MealBalanceConstraint::print_(std::ostream& os) const {
+    os << "Balanced meals: no meal more than " << maxRatio << "x the calories of another";
 }
 
 std::unique_ptr<PlanConstraint> MealBalanceConstraint::clone() const {
