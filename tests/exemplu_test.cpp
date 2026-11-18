@@ -24,6 +24,7 @@
 #include "Recipes.h"
 #include "ShoppingList.h"
 #include "UserChoices.h"
+#include "Errors.h"
 #include "PlanConstraint.h"
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
@@ -69,7 +70,7 @@ namespace {
             try {
                 const Ingredient broken{1.0, "x", bad, 1};
                 (void) broken;
-            } catch (const std::invalid_argument&) {
+            } catch (const InputError&) {
                 threw = true;
             }
             assert(threw && "an unknown unit must throw");
@@ -118,7 +119,7 @@ namespace {
             bool threw = false;
             try {
                 milk.scale(bad);
-            } catch (const std::invalid_argument&) {
+            } catch (const AmountError&) {
                 threw = true;
             }
             assert(threw && "a factor <= 0 must throw");
@@ -150,7 +151,7 @@ namespace {
             try {
                 const Recipe broken{"x", bad, {}, Nutrition{0, 0, 0, 0, 0}, 1, 10};
                 (void) broken;
-            } catch (const std::invalid_argument&) {
+            } catch (const InputError&) {
                 threw = true;
             }
             assert(threw && "an unknown category must throw");
@@ -260,7 +261,7 @@ namespace {
             try {
                 const Recipe broken = original.scaled(bad);
                 (void) broken;
-            } catch (const std::invalid_argument&) {
+            } catch (const AmountError&) {
                 threw = true;
             }
             assert(threw && "servings <= 0 must throw");
@@ -470,7 +471,7 @@ namespace {
             try {
                 const DayMeals broken = day.scaled(bad);
                 (void) broken;
-            } catch (const std::invalid_argument&) {
+            } catch (const AmountError&) {
                 threw = true;
             }
             assert(threw && "servings <= 0 must throw");
@@ -535,13 +536,37 @@ namespace {
         return output.substr(start, next - start);
     }
 
-    const std::string noPlan = "cannot compute a meal plan , please change the budget/calorie target\n";
+    // the printed plan has Day 1 .. Day 7 and no Day 8 (operator<< is the only way to see the days)
+    bool hasSevenDays(const MealPlan& plan) {
+        const std::string output = printed(plan);
+        for (int day = 1; day <= 7; day++) {
+            if (output.find("Day " + std::to_string(day) + "\n") == std::string::npos) {
+                return false;
+            }
+        }
+        return output.find("Day 8\n") == std::string::npos;
+    }
+
+    const std::string budgetReason = "Plan impossible error: The budget is too small for 7 days";
+    const std::string restrictionsReason = "Plan impossible error: The restrictions leave too few recipes";
+
+    // the what() of the PlanImpossibleError the constructor throws; "" when the plan was built
+    std::string planFailure(double budget, double kcal, const Recipes& catalog,
+                            std::vector<std::unique_ptr<PlanConstraint>> constraints = {}) {
+        try {
+            const MealPlan plan{budget, kcal, catalog, std::move(constraints)};
+            (void) plan;
+        } catch (const PlanImpossibleError& e) {
+            return e.what();
+        }
+        return "";
+    }
 
     void testMealPlanWeek() {
         const Recipes catalog = catalogOf(weekRows());
         // 70 lei / 7 = 10 lei a day; every day costs 3
         const MealPlan plan{70, 2000, catalog};
-        assert(plan.weekCompleted());
+        assert(hasSevenDays(plan));
 
         const std::string output = printed(plan);
         assert(output.starts_with("Day 1\n"));
@@ -581,7 +606,7 @@ namespace {
         rows.emplace_back("near", "breakfast", 630, 1);
         rows.emplace_back("far", "breakfast", 700, 1);
         const MealPlan plan{70, 2000, catalogOf(rows)};
-        assert(plan.weekCompleted());
+        assert(hasSevenDays(plan));
         const std::string output = printed(plan);
         assert(timesServed(dayText(output, 1), "near") == 1);
         // closest is closest even when it is far from half: no breakfast is left out for being far
@@ -596,7 +621,7 @@ namespace {
         // the most kcal, but the farthest from 800 → never reached in 7 days
         rows.emplace_back("huge", "lunch", 1600, 1);
         const MealPlan plan{70, 2000, catalogOf(rows)};
-        assert(plan.weekCompleted());
+        assert(hasSevenDays(plan));
         const std::string output = printed(plan);
         assert(timesServed(dayText(output, 1), "exact") == 1);
         assert(timesServed(dayText(output, 2), "above") == 1);
@@ -608,7 +633,7 @@ namespace {
 
         // a low target turns the order around: 40% of 1300 = 520, so l1 (700) first and l7 (760) last
         const MealPlan low{70, 1300, catalogOf(weekRows())};
-        assert(low.weekCompleted());
+        assert(hasSevenDays(low));
         const std::string lowOutput = printed(low);
         assert(timesServed(dayText(lowOutput, 1), "l1") == 1);
         assert(timesServed(dayText(lowOutput, 7), "l7") == 1);
@@ -624,7 +649,7 @@ namespace {
         // the closest breakfast to half, but over (10 - 1) / 2 = 4.5 lei → the next closest is taken
         rows.emplace_back("caviar", "breakfast", 620, 5);
         const MealPlan plan{70, 2000, catalogOf(rows)};
-        assert(plan.weekCompleted());
+        assert(hasSevenDays(plan));
         const std::string output = printed(plan);
         assert(timesServed(output, "lobster") == 0);
         assert(timesServed(output, "steak") == 0);
@@ -634,26 +659,27 @@ namespace {
 
     void testMealPlanFails() {
         // 7 lei a week = 1 leu a day: the lunch fits, nothing is left for breakfast → no day at all
-        const MealPlan poor{7, 2000, catalogOf(weekRows())};
-        assert(!poor.weekCompleted());
-        assert(printed(poor) == noPlan);
+        const std::string poor = planFailure(7, 2000, catalogOf(weekRows()));
+        assert(poor == budgetReason);
 
-        // only 6 lunches: recipes are not repeated, so day 7 has no lunch
+        // only 6 lunches: recipes are not repeated, so day 7 has no lunch (no constraints → the budget is blamed)
         std::vector<PlanRow> rows;
         for (const PlanRow& row : weekRows()) {
             if (std::get<0>(row) != "l1") {
                 rows.push_back(row);
             }
         }
-        const MealPlan sixLunches{70, 2000, catalogOf(rows)};
-        assert(!sixLunches.weekCompleted());
-        assert(printed(sixLunches) == noPlan);
+        const std::string sixLunches = planFailure(70, 2000, catalogOf(rows));
+        assert(sixLunches == budgetReason);
 
         // an empty catalog cannot fill a single day
         const Recipes empty{{}, {}, {}};
-        const MealPlan nothing{70, 2000, empty};
-        assert(!nothing.weekCompleted());
-        assert(printed(nothing) == noPlan);
+        const std::string nothing = planFailure(70, 2000, empty);
+        assert(nothing == budgetReason);
+
+        // a plan that works throws nothing
+        const std::string works = planFailure(70, 2000, catalogOf(weekRows()));
+        assert(works.empty());
     }
     // how many times a piece of text appears in the output
     int countOf(const std::string& output, const std::string& piece) {
@@ -670,7 +696,7 @@ namespace {
 
         // the greedy does not run again: same 7 days, same recipes in the same days, 3 servings each
         const MealPlan triple = plan.scaled(3);
-        assert(triple.weekCompleted());
+        assert(hasSevenDays(triple));
         const std::string output = printed(triple);
         assert(countOf(output, ", 3 servings)\n") == 21);
         assert(countOf(output, ", 1 servings)\n") == 0);
@@ -692,18 +718,12 @@ namespace {
             try {
                 const MealPlan broken = plan.scaled(bad);
                 (void) broken;
-            } catch (const std::invalid_argument&) {
+            } catch (const AmountError&) {
                 threw = true;
             }
             assert(threw && "servings <= 0 must throw");
             assert(printed(plan) == before && "a failed call leaves the plan untouched");
         }
-
-        // a failed plan stays failed after scaling
-        const MealPlan poor{7, 2000, catalogOf(weekRows())};
-        const MealPlan poorScaled = poor.scaled(2);
-        assert(!poorScaled.weekCompleted());
-        assert(printed(poorScaled) == noPlan);
     }
 
     void testRecipeQuestions() {
@@ -737,12 +757,12 @@ namespace {
         assert(out.str() == "Name: oatmeal_banana, kcal: 549.00, price: 3.97 lei\n3.14159");
     }
 
-    bool throwsInvalidArgument(bool namePicked, bool ingredientPicked, const std::string& text) {
+    bool throwsInputError(bool namePicked, bool ingredientPicked, const std::string& text) {
         try {
             const UserChoices choices{false, namePicked, ingredientPicked, Category::breakfast, text, text,
                                       SortChoice::price};
             (void) choices;
-        } catch (const std::invalid_argument&) {
+        } catch (const InputError&) {
             return true;
         }
         return false;
@@ -774,9 +794,9 @@ namespace {
         assert(nothingPicked.matches(chicken));
 
         // an empty text is rejected only for a picked criterion
-        assert(throwsInvalidArgument(true, false, ""));
-        assert(throwsInvalidArgument(false, true, ""));
-        assert(!throwsInvalidArgument(false, false, ""));
+        assert(throwsInputError(true, false, ""));
+        assert(throwsInputError(false, true, ""));
+        assert(!throwsInputError(false, false, ""));
 
         // ascending by the user's sort choice; equal recipes do not come before each other
         // (oatmeal: 549 kcal, 3.97 lei; chicken: 330 kcal, 6.80 lei)
@@ -849,7 +869,7 @@ namespace {
         try {
             const auto [category, name, ingredient] = reader(input);
             return std::string(category ? "c" : "-") + (name ? "n" : "-") + (ingredient ? "i" : "-");
-        } catch (const std::invalid_argument&) {
+        } catch (const InputError&) {
             return "throws";
         }
     }
@@ -879,12 +899,12 @@ namespace {
         return recipe.getName();
     }
 
-    // true when the call throws std::invalid_argument
-    template <typename Call>
-    bool throwsInvalid(Call call) {
+    // true when the call throws Error (or a class derived from it)
+    template <typename Error, typename Call>
+    bool throwsError(Call call) {
         try {
             call();
-        } catch (const std::invalid_argument&) {
+        } catch (const Error&) {
             return true;
         }
         return false;
@@ -909,7 +929,7 @@ namespace {
         }
         // day prices: 5, 9, 6, 4, 11, 4, 7 = 46 lei
         const MealPlan plan{700, 2000, catalogOf(rows)};
-        assert(plan.weekCompleted());
+        assert(hasSevenDays(plan));
 
         const double left = plan.budgetLeft();
         assert(nearlyEqual(left, 654));
@@ -937,20 +957,6 @@ namespace {
         assert(mostExpensive == 1);
         const double left = plan.budgetLeft();
         assert(nearlyEqual(left, 70 - 21));
-    }
-
-    void testMealPlanStatsFailedPlan() {
-        // main never asks a failed plan for stats; the functions still answer safely
-        const MealPlan poor{7, 2000, catalogOf(weekRows())};
-        assert(!poor.weekCompleted());
-        const double average = poor.averageKcalPerDay();
-        const double left = poor.budgetLeft();
-        const int cheapest = poor.cheapestDay();
-        const int mostExpensive = poor.mostExpensiveDay();
-        assert(nearlyEqual(average, 0));
-        assert(nearlyEqual(left, 7) && "nothing was spent");
-        assert(cheapest == 0);
-        assert(mostExpensive == 0);
     }
 
     void testRecipesStats() {
@@ -996,10 +1002,10 @@ namespace {
 
     void testRecipesStatsEmptyCategory() {
         const Recipes empty{{}, {}, {}};
-        const bool price = throwsInvalid([&empty] { (void) empty.averagePrice(Category::lunch); });
-        const bool kcal = throwsInvalid([&empty] { (void) empty.averageKcal(Category::lunch); });
-        const bool cheapest = throwsInvalid([&empty] { (void) empty.cheapestRecipe(Category::lunch); });
-        const bool mostExpensive = throwsInvalid([&empty] { (void) empty.mostExpensiveRecipe(Category::lunch); });
+        const bool price = throwsError<EmptyCategoryError>([&empty] { (void) empty.averagePrice(Category::lunch); });
+        const bool kcal = throwsError<EmptyCategoryError>([&empty] { (void) empty.averageKcal(Category::lunch); });
+        const bool cheapest = throwsError<EmptyCategoryError>([&empty] { (void) empty.cheapestRecipe(Category::lunch); });
+        const bool mostExpensive = throwsError<EmptyCategoryError>([&empty] { (void) empty.mostExpensiveRecipe(Category::lunch); });
         assert(price);
         assert(kcal);
         assert(cheapest);
@@ -1017,8 +1023,8 @@ namespace {
         assert(printed(oats) == "oats (150 - g) (2.25 lei)");
 
         // another name or another unit is refused, and the ingredient stays as it was
-        const bool otherName = throwsInvalid([&oats] { oats += Ingredient{0.80, "milk", "g", 100}; });
-        const bool otherUnit = throwsInvalid([&oats] { oats += Ingredient{1.50, "oats", "pieces", 1}; });
+        const bool otherName = throwsError<UnitError>([&oats] { oats += Ingredient{0.80, "milk", "g", 100}; });
+        const bool otherUnit = throwsError<UnitError>([&oats] { oats += Ingredient{1.50, "oats", "pieces", 1}; });
         assert(otherName);
         assert(otherUnit);
         assert(printed(oats) == "oats (150 - g) (2.25 lei)");
@@ -1051,11 +1057,6 @@ namespace {
         assert(ingredientNames(dayOne) == "b7_ing l7_ing d7_ing");
         const std::vector<Ingredient> dayTwo(week.begin() + 3, week.begin() + 6);
         assert(ingredientNames(dayTwo) == "b6_ing l6_ing d6_ing");
-
-        // a failed plan has no days, so no ingredients
-        const MealPlan poor{7, 2000, catalogOf(weekRows())};
-        const std::vector<Ingredient> none = poor.giveIngredients();
-        assert(none.empty());
     }
 
     std::string printed(const ShoppingList& list) {
@@ -1127,11 +1128,11 @@ namespace {
         std::remove(fileName.c_str());
         assert(content.str() == "oats (100 - g) (1.50 lei)\nTotal: 1.50 lei\n");
 
-        // a folder that does not exist: openFile throws std::runtime_error
+        // a folder that does not exist: openFile throws FileError
         bool threw = false;
         try {
             list.exportList("no_such_folder/list.txt");
-        } catch (const std::runtime_error&) {
+        } catch (const FileError&) {
             threw = true;
         }
         assert(threw);
@@ -1145,8 +1146,8 @@ namespace {
         assert(!oats.isEmpty());
 
         // another unit is refused, and the ingredient stays as it was
-        const bool otherUnit = throwsInvalid([&oats] { oats -= Ingredient{0, "oats", "pieces", 1}; });
-        const bool otherName = throwsInvalid([&oats] { oats -= Ingredient{0, "milk", "g", 1}; });
+        const bool otherUnit = throwsError<UnitError>([&oats] { oats -= Ingredient{0, "oats", "pieces", 1}; });
+        const bool otherName = throwsError<UnitError>([&oats] { oats -= Ingredient{0, "milk", "g", 1}; });
         assert(otherUnit);
         assert(otherName);
         assert(printed(oats) == "oats (100 - g) (1.50 lei)");
@@ -1177,7 +1178,7 @@ namespace {
         assert(pantryText("oats 200 g, milk 500 ml,eggs 2 pieces") ==
                "oats (200 - g) (0.00 lei)\nmilk (500 - ml) (0.00 lei)\neggs (2 - pieces) (0.00 lei)\n");
 
-        // every bad shape throws std::invalid_argument
+        // every bad shape throws a WeekBiteError (InputError for the shape, AmountError for <= 0)
         const std::string bad[] = {
             "",                       // nothing typed
             "oats",                   // no amount
@@ -1190,7 +1191,7 @@ namespace {
             "oats 200 g,,milk 1 ml",  // an empty item between commas
         };
         for (const std::string& input : bad) {
-            const bool threw = throwsInvalid([&input] { (void) pantryReader(input); });
+            const bool threw = throwsError<WeekBiteError>([&input] { (void) pantryReader(input); });
             assert(threw);
         }
     }
@@ -1236,7 +1237,7 @@ namespace {
 
         // one bad item (banana in g) → refused, and the whole list stays as it was (oats is not touched either)
         ShoppingList kept = breakfastList();
-        const bool threw = throwsInvalid([&kept] { kept.subtractPantry(pantryReader("oats 50 g, banana 100 g")); });
+        const bool threw = throwsError<UnitError>([&kept] { kept.subtractPantry(pantryReader("oats 50 g, banana 100 g")); });
         assert(threw);
         assert(printed(kept) == printed(breakfastList()));
 
@@ -1345,11 +1346,11 @@ namespace {
         rows.emplace_back("feast", "dinner", 2500, 1);
 
         const MealPlan noRules{70, 6000, catalogOf(rows)};
-        assert(noRules.weekCompleted());
+        assert(hasSevenDays(noRules));
         assert(timesServed(dayText(printed(noRules), 1), "feast") == 1);
 
         const MealPlan balanced{70, 6000, catalogOf(rows), onlyBalance()};
-        assert(balanced.weekCompleted());
+        assert(hasSevenDays(balanced));
         const std::string output = printed(balanced);
         assert(timesServed(output, "feast") == 0);
         assert(timesServed(dayText(output, 1), "d7") == 1);
@@ -1476,13 +1477,13 @@ namespace {
         assert(timesServed(dayText(printed(noLimit), 1), "roast") == 1);
         // weekdays only: skipped Monday to Friday, served on Saturday (day 6)
         const MealPlan weekdays{70, 2000, catalog, onlyPrepTime(true)};
-        assert(weekdays.weekCompleted());
+        assert(hasSevenDays(weekdays));
         const std::string weekdaysOutput = printed(weekdays);
         assert(timesServed(weekdaysOutput, "roast") == 1);
         assert(timesServed(dayText(weekdaysOutput, 6), "roast") == 1);
         // every day: never served, the week still completes with the other 7 lunches
         const MealPlan everyDay{70, 2000, catalog, onlyPrepTime(false)};
-        assert(everyDay.weekCompleted());
+        assert(hasSevenDays(everyDay));
         assert(timesServed(printed(everyDay), "roast") == 0);
     }
 
@@ -1560,7 +1561,7 @@ namespace {
             bool threw = false;
             try {
                 (void) dietFromText(text);
-            } catch (const std::invalid_argument&) {
+            } catch (const InputError&) {
                 threw = true;
             }
             assert(threw && "an unknown diet name must throw");
@@ -1622,15 +1623,15 @@ namespace {
         std::vector<std::unique_ptr<PlanConstraint>> noPork;
         noPork.push_back(std::make_unique<DietRestrictionConstraint>(Diet::noPork));
         const MealPlan withoutPork{70, 2000, catalog, std::move(noPork)};
-        assert(withoutPork.weekCompleted());
+        assert(hasSevenDays(withoutPork));
         assert(timesServed(printed(withoutPork), "pork_roast") == 0);
 
-        // vegan: no test ingredient is tagged vegan, so not even one day can be built
+        // vegan: no test ingredient is tagged vegan, so not even one day can be built;
+        // the same 70 lei fill the week without the diet (anything above) → the restrictions are blamed
         std::vector<std::unique_ptr<PlanConstraint>> vegan;
         vegan.push_back(std::make_unique<DietRestrictionConstraint>(Diet::vegan));
-        const MealPlan veganPlan{70, 2000, catalog, std::move(vegan)};
-        assert(!veganPlan.weekCompleted());
-        assert(printed(veganPlan) == noPlan);
+        const std::string veganFailure = planFailure(70, 2000, catalog, std::move(vegan));
+        assert(veganFailure == restrictionsReason);
     }
 
     void testMealPlanCopyWithConstraints() {
@@ -1644,7 +1645,7 @@ namespace {
         assert(printed(copy) == expected);
         // scaled() copies the plan too
         const MealPlan doubled = balanced.scaled(2);
-        assert(doubled.weekCompleted());
+        assert(hasSevenDays(doubled));
         assert(printed(balanced) == expected);
 
         // operator=: the old plan and its constraints are replaced, the source stays the same
@@ -1654,9 +1655,19 @@ namespace {
         assert(printed(target) == expected);
         assert(printed(balanced) == expected);
         // assigning a temporary (copy-and-swap takes it by value)
-        target = MealPlan{7, 2000, catalogOf(weekRows()), onlyBalance()};
-        assert(!target.weekCompleted());
-        assert(printed(target) == noPlan);
+        const std::string plain = printed(MealPlan{70, 1300, catalogOf(weekRows())});
+        target = MealPlan{70, 1300, catalogOf(weekRows())};
+        assert(printed(target) == plain);
+        // a temporary that cannot be built throws before operator= runs: target keeps its plan.
+        // 7 lei fail with or without the balance rule → the budget is blamed, not the constraint
+        std::string reason;
+        try {
+            target = MealPlan{7, 2000, catalogOf(weekRows()), onlyBalance()};
+        } catch (const PlanImpossibleError& e) {
+            reason = e.what();
+        }
+        assert(reason == budgetReason);
+        assert(printed(target) == plain);
     }
 }
 
@@ -1691,7 +1702,6 @@ int main() {
     testCategoryToText();
     testMealPlanStats();
     testMealPlanStatsTies();
-    testMealPlanStatsFailedPlan();
     testRecipesStats();
     testRecipesStatsTies();
     testRecipesStatsEmptyCategory();

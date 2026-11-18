@@ -195,4 +195,12 @@ vegetarian,glutenfree
 n
 n
 n
+p
+300
+2500
+n
+n
+n
+y
+vegan,glutenfree
 q
