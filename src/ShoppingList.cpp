@@ -3,6 +3,7 @@
 //
 
 #include "ShoppingList.h"
+#include "Errors.h"
 #include "fileHelper.h"
 #include "textHelper.h"
 #include <algorithm>   // std::find_if
@@ -89,15 +90,15 @@ std::vector<Ingredient> pantryReader(const std::string& input) {
         std::string unit;
         std::string extra;
         if (!(pieceStream >> name >> amount >> unit) || pieceStream >> extra) {
-            throw std::invalid_argument("Invalid item: " + piece);
+            throw InputError("Invalid item: " + piece);
         }
         if (amount <= 0) {
-            throw std::invalid_argument("Invalid amount: " + piece);
+            throw AmountError("Invalid amount: " + piece);
         }
         pantry.push_back(Ingredient(0, toLowercase(name), unit, amount));
     }
     if (pantry.empty()) {
-        throw std::invalid_argument("No items provided");
+        throw InputError("No items provided");
     }
     return pantry;
 }

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
-#include <stdexcept>
+#include "Errors.h"
 #include <fstream>
 #include <numeric>
 #include <utility>
@@ -17,10 +17,17 @@ MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& ca
                    std::vector<std::unique_ptr<PlanConstraint>> constraints)
     : weeklyBudget(weeklyBudget), caloriesPerDay(caloriesPerDay), constraints(std::move(constraints)) {
     // days starts empty; the greedy fills it
-    processPlan(catalog);
+    if (processPlan(catalog, true))
+        return;
+    days.clear();
+    if (!this->constraints.empty() && processPlan(catalog, false)) {
+        throw PlanImpossibleError("The restrictions leave too few recipes");
+    } else {
+        throw PlanImpossibleError("The budget is too small for 7 days");
+    }
 }
 
-void MealPlan::processPlan(const Recipes& catalog) {
+bool MealPlan::processPlan(const Recipes& catalog, bool useConstraints) {
     constexpr double lunchCalorieRatio = 0.4;
     const double targetLunchCalories = caloriesPerDay * lunchCalorieRatio;
     double dailyBudget = weeklyBudget / 7;
@@ -40,7 +47,7 @@ void MealPlan::processPlan(const Recipes& catalog) {
             if (lunch.recipePrice() > dailyBudget)
                 continue;
             else {
-                if (!passesConstraints({}, lunch))
+                if (useConstraints && !passesConstraints({}, lunch))
                     continue;
                 const std::vector<Recipe> todayAfterLunch{lunch};
                 double half = (caloriesPerDay - lunch.getNutrition().getCalories()) / 2;
@@ -52,7 +59,7 @@ void MealPlan::processPlan(const Recipes& catalog) {
                     if (copyBreakfast[j].recipePrice() > moneyForBreakfast) {
                         continue;
                     }
-                    if (!passesConstraints(todayAfterLunch, copyBreakfast[j])) {
+                    if (useConstraints && !passesConstraints(todayAfterLunch, copyBreakfast[j])) {
                         continue;
                     }
                     double distance = std::abs(copyBreakfast[j].getNutrition().getCalories() - half);
@@ -71,7 +78,7 @@ void MealPlan::processPlan(const Recipes& catalog) {
                     if (copyDinner[j].recipePrice() > moneyForDinner) {
                         continue;
                     }
-                    if (!passesConstraints(todayAfterBreakfast, copyDinner[j])) {
+                    if (useConstraints && !passesConstraints(todayAfterBreakfast, copyDinner[j])) {
                         continue;
                     }
                     double distance = std::abs(copyDinner[j].getNutrition().getCalories() - half);
@@ -93,18 +100,15 @@ void MealPlan::processPlan(const Recipes& catalog) {
             }
         }
         if (!dayFound) {
-            return;
+            return false;
         }
     }
-}
-
-bool MealPlan::weekCompleted() const {
-    return (days.size() == 7);
+    return true;
 }
 
 MealPlan MealPlan::scaled(int newServings) const {
     if (newServings <= 0) {
-        throw std::invalid_argument("Invalid number of servings");
+        throw AmountError("Invalid number of servings");
     }
     MealPlan scaledPlan = *this;
     scaledPlan.days.clear();
@@ -115,24 +119,18 @@ MealPlan MealPlan::scaled(int newServings) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const MealPlan& plan) {
-    if (!plan.weekCompleted()) {
-        os << "cannot compute a meal plan , please change the budget/calorie target\n";
-        return os;
-    } else {
-        double totalMoneySpent = 0;
-        for (int i = 0; i < static_cast<int>(plan.days.size()); i++) {
-            totalMoneySpent += plan.days[i].dayPrice();
-            os << "Day " << i + 1 << "\n";
-            os << plan.days[i];
-            os << "\n";
-        }
-        const std::streamsize oldPrecision = os.precision();
-        os << std::setprecision(2) << std::fixed << "Total money spent: " << totalMoneySpent << " lei";
-        os << std::defaultfloat;
-        os.precision(oldPrecision);
+    double totalMoneySpent = 0;
+    for (int i = 0; i < static_cast<int>(plan.days.size()); i++) {
+        totalMoneySpent += plan.days[i].dayPrice();
+        os << "Day " << i + 1 << "\n";
+        os << plan.days[i];
         os << "\n";
     }
-
+    const std::streamsize oldPrecision = os.precision();
+    os << std::setprecision(2) << std::fixed << "Total money spent: " << totalMoneySpent << " lei";
+    os << std::defaultfloat;
+    os.precision(oldPrecision);
+    os << "\n";
     return os;
 }
 
@@ -155,9 +153,6 @@ Nutrition MealPlan::weekNutritionTotal() const {
 }
 
 double MealPlan::averageKcalPerDay() const {
-    if (days.empty()) {
-        return 0.0;
-    }
     return weekNutritionTotal().getCalories() / static_cast<double>(days.size());
 }
 
@@ -169,9 +164,6 @@ double MealPlan::budgetLeft() const {
 }
 
 int MealPlan::cheapestDay() const {
-    if (days.empty()) {
-        return 0;
-    }
     auto it = std::min_element(days.begin(), days.end(), [](const DayMeals& a, const DayMeals& b) {
         return a.dayPrice() < b.dayPrice();
     });
@@ -179,9 +171,6 @@ int MealPlan::cheapestDay() const {
 }
 
 int MealPlan::mostExpensiveDay() const {
-    if (days.empty()) {
-        return 0;
-    }
     auto it = std::max_element(days.begin(), days.end(), [](const DayMeals& a, const DayMeals& b) {
         return a.dayPrice() < b.dayPrice();
     });

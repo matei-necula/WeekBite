@@ -3,7 +3,7 @@
 //
 
 #include "Ingredient.h"
-#include <stdexcept>
+#include "Errors.h"
 #include <algorithm>
 #include <iomanip>
 
@@ -23,7 +23,7 @@ namespace {
         if (unitText == "pieces")
             return Unit::pieces;
         // files are assumed correct, so an unknown unit is an error, not something to skip
-        throw std::invalid_argument("Invalid unit text: " + unitText);
+        throw InputError("Invalid unit text: " + unitText);
     }
 
     std::string unitToText(Unit unit) {
@@ -40,7 +40,7 @@ namespace {
                 return "pieces";
         }
         // not reachable (every Unit is handled above); without it the compiler warns about a missing return
-        throw std::invalid_argument("Invalid unit");
+        throw UnitError("Invalid unit");
     }
 }
 
@@ -66,7 +66,7 @@ double Ingredient::recipePrice() const {
         case Unit::pieces:
             return ingredientPrice * amount;
     }
-    throw std::invalid_argument("Invalid unit");
+    throw UnitError("Invalid unit");
 }
 
 std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient) {
@@ -85,7 +85,7 @@ std::ostream& operator<<(std::ostream& os, const Ingredient& ingredient) {
 void Ingredient::scale(int factor) {
     // checked before changing amount, so a bad factor leaves the ingredient untouched
     if (factor <= 0)
-        throw std::invalid_argument("Invalid factor");
+        throw AmountError("Invalid factor");
     amount *= factor;
 }
 
@@ -95,14 +95,14 @@ const std::string& Ingredient::getName() const {
 
 Ingredient& Ingredient::operator+=(const Ingredient& other) {
     if (name != other.name || unit != other.unit)
-        throw std::invalid_argument("Cannot add ingredients with different names or units");
+        throw UnitError("Cannot add ingredients with different names or units");
     amount += other.amount;
     return *this;
 }
 
 Ingredient& Ingredient::operator-=(const Ingredient& other) {
     if (name != other.name || unit != other.unit)
-        throw std::invalid_argument("Cannot subtract " + other.name + ": the unit is different");
+        throw UnitError("Cannot subtract " + other.name + ": the unit is different");
     amount -= other.amount;
     if (amount < 0)
         amount = 0;

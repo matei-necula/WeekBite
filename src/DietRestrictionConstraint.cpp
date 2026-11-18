@@ -3,6 +3,7 @@
 //
 
 #include "DietRestrictionConstraint.h"
+#include "Errors.h"
 #include <stdexcept>
 #include "textHelper.h"
 
@@ -20,7 +21,7 @@ Diet dietFromText(const std::string& text) {
         return Diet::noPork;
      if (lower == "noredmeat")
         return Diet::noRedMeat;
-     throw std::invalid_argument("Unknown diet: " + text);
+     throw InputError("Unknown diet: " + text);
 }
 
 DietRestrictionConstraint::DietRestrictionConstraint(Diet diet)
@@ -44,7 +45,7 @@ bool DietRestrictionConstraint::isValid_(const std::vector<DayMeals>& /*previous
         case Diet::noRedMeat:
             return !wantToAdd.containsAny("red meat");
     }
-    throw std::logic_error("Unknown diet");
+    throw InputError("Unknown diet");
 }
 
 std::unique_ptr<PlanConstraint> DietRestrictionConstraint::clone() const {

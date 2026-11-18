@@ -3,7 +3,7 @@
 //
 
 #include "Recipe.h"
-#include <stdexcept>
+#include "Errors.h"
 #include <string>
 #include <iomanip>
 #include "fileHelper.h"
@@ -16,7 +16,7 @@ namespace {
             return Category::lunch;
         if (categoryText == "dinner")
             return Category::dinner;
-        throw std::invalid_argument("Invalid category text: " + categoryText);
+        throw InputError("Invalid category text: " + categoryText);
     }
 }
 
@@ -29,7 +29,7 @@ std::string categoryToText(Category category) {
         case Category::dinner:
             return "dinner";
     }
-    throw std::invalid_argument("Invalid category");
+    throw InputError("Invalid category");
 }
 
 Recipe::Recipe(const std::string& name, const std::string& categoryText, const std::vector<Ingredient>& ingredients,
@@ -108,7 +108,7 @@ Recipe::~Recipe() {
 
 Recipe Recipe::scaled(int newServings) const {
     if (newServings <= 0) {
-        throw std::invalid_argument("Invalid number of servings");
+        throw AmountError("Invalid number of servings");
     }
     // copy first, so *this (the catalog recipe) is never changed
     Recipe scaledRecipe = *this;

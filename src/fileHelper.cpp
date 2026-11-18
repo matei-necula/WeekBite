@@ -3,12 +3,12 @@
 //
 
 #include "fileHelper.h"
-  #include <stdexcept>
+#include "Errors.h"
 
   std::ofstream openFile(const std::string& fileName) {
       std::ofstream file(fileName);
       if (!file) {
-          throw std::runtime_error("File could not be opened");
+          throw FileError("File could not be opened");
       }
       return file;
   }

@@ -3,9 +3,10 @@
 //
 
 #include "UserChoices.h"
+#include "Errors.h"
 #include "textHelper.h"
 
-#include <stdexcept>   // std::invalid_argument
+#include <stdexcept>
 #include <string>
 
 UserChoices::UserChoices(bool categoryPicked, bool namePicked, bool ingredientPicked, Category category,
@@ -15,10 +16,10 @@ UserChoices::UserChoices(bool categoryPicked, bool namePicked, bool ingredientPi
                                                   nameText(toLowercase(nameText)),
                                                   ingredientText(toLowercase(ingredientText)), sortChoice(sortChoice) {
     if (namePicked && nameText.empty()) {
-        throw std::invalid_argument("Type the name");
+        throw InputError("Type the name");
     }
     if (ingredientPicked && ingredientText.empty()) {
-        throw std::invalid_argument("Type the ingredient");
+        throw InputError("Type the ingredient");
     }
 }
 

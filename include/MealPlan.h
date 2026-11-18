@@ -14,12 +14,13 @@
 #include "PlanConstraint.h"
 
 class MealPlan {
-    std::vector<DayMeals> days; // 7 when the plan worked, fewer when it failed
+    std::vector<DayMeals> days; // always 7 , constructor throws PlanImpossibleError otherwise
     double weeklyBudget;
     double caloriesPerDay;
 
     // the greedy; private, only the constructor calls it
-    void processPlan(const Recipes& catalog);
+    // true when all 7 days were filled; useConstraints = false ignores the constraints
+    bool processPlan(const Recipes& catalog, bool useConstraints);
 
     std::vector<std::unique_ptr<PlanConstraint>> constraints;
 
@@ -34,8 +35,6 @@ public:
     MealPlan& operator=(MealPlan other);
 
     friend void swap(MealPlan& first, MealPlan& second) noexcept;
-
-    bool weekCompleted() const;
 
     MealPlan scaled(int newServings) const;
 

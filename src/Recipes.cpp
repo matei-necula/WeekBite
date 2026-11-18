@@ -3,7 +3,7 @@
 //
 
 #include "Recipes.h"
-#include <stdexcept>
+#include "Errors.h"
 #include <algorithm>
 #include <sstream>
 #include <numeric>
@@ -17,7 +17,7 @@ const std::vector<Recipe>& Recipes::getRecipesFromCategory(Category category) co
         case Category::dinner:
             return dinners;
     }
-    throw std::invalid_argument("Invalid category");
+    throw InputError("Invalid category");
 }
 
 Recipes::Recipes(const std::map<std::string, IngredientInfo>& ingredientInfo,
@@ -110,11 +110,11 @@ std::tuple<bool, bool, bool> reader(const std::string& input) {
         } else if (word == "ingredient") {
             ingredient = true;
         } else {
-            throw std::invalid_argument("Invalid input: " + word);
+            throw InputError("Invalid input: " + word);
         }
     }
     if (!category && !name && !ingredient) {
-        throw std::invalid_argument("No valid input provided");
+        throw InputError("No valid input provided");
     }
 
     return {category, name, ingredient};
@@ -123,7 +123,7 @@ std::tuple<bool, bool, bool> reader(const std::string& input) {
 double Recipes::averagePrice(Category category) const {
     const auto& list = getRecipesFromCategory(category);
     if (list.empty()) {
-        throw std::invalid_argument("Cannot calculate average price for empty category");
+        throw EmptyCategoryError("Cannot calculate average price for empty category");
     }
     double total = std::accumulate(list.begin(), list.end(), 0.0, [](double sum, const Recipe& r) {
         return sum + r.recipePrice();
@@ -134,7 +134,7 @@ double Recipes::averagePrice(Category category) const {
 double Recipes::averageKcal(Category category) const {
     const auto& list = getRecipesFromCategory(category);
     if (list.empty()) {
-        throw std::invalid_argument("Cannot calculate average calories for empty category");
+        throw EmptyCategoryError("Cannot calculate average calories for empty category");
     }
     double total = std::accumulate(list.begin(), list.end(), 0.0, [](double sum, const Recipe& r) {
         return sum + r.getNutrition().getCalories();
@@ -145,7 +145,7 @@ double Recipes::averageKcal(Category category) const {
 Recipe Recipes::cheapestRecipe(Category category) const {
     const auto& list = getRecipesFromCategory(category);
     if (list.empty()) {
-        throw std::invalid_argument("Cannot find cheapest recipe in empty category");
+        throw EmptyCategoryError("Cannot find cheapest recipe in empty category");
     }
     auto it = std::min_element(list.begin(), list.end(), [](const Recipe& a, const Recipe& b) {
         return a.recipePrice() < b.recipePrice();
@@ -156,7 +156,7 @@ Recipe Recipes::cheapestRecipe(Category category) const {
 Recipe Recipes::mostExpensiveRecipe(Category category) const {
     const auto& list = getRecipesFromCategory(category);
     if (list.empty()) {
-        throw std::invalid_argument("Cannot find most expensive recipe in empty category");
+        throw EmptyCategoryError("Cannot find most expensive recipe in empty category");
     }
     auto it = std::max_element(list.begin(), list.end(), [](const Recipe& a, const Recipe& b) {
         return a.recipePrice() < b.recipePrice();

@@ -12,7 +12,7 @@
 // one restriction the user can pick; vegan / vegetarian need every ingredient to be suitable,
 // the others reject a recipe if any ingredient contains the tag
 enum class Diet { vegan, vegetarian, glutenFree, lactoseFree, noPork, noRedMeat };
-// throws std::invalid_argument for any other text
+// throws InputError for any other text
 Diet dietFromText(const std::string& text);
 
 class DietRestrictionConstraint : public PlanConstraint {

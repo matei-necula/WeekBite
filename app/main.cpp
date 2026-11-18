@@ -9,12 +9,13 @@
 #include <iomanip>
 #include "ShoppingList.h"
 #include <memory>
-
+#include "Errors.h"
 #include "DietRestrictionConstraint.h"
 #include "MealBalanceConstraint.h"
 #include "NutritionTargetConstraint.h"
 #include "WeekdayPrepTimeConstraint.h"
 #include "textHelper.h"
+#include <optional>
 
 // a line between what the user types and what the program shows
 void printSeparator() {
@@ -113,7 +114,7 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
                     constraints.push_back(std::move(diet));
                 }
                 break;
-            } catch (const std::invalid_argument& e) {
+            } catch (const InputError& e) {
                 std::cout << e.what() << '\n';
             }
         }
@@ -140,7 +141,7 @@ void pantryQuestion(ShoppingList& list) {
                 std::cout << name << " is not on your list\n";
             }
             return;
-        } catch (const std::invalid_argument& e) {
+        } catch (const WeekBiteError& e) {
             std::cout << e.what() << '\n';
         }
     }
@@ -174,6 +175,17 @@ void shoppingListQuestion(const MealPlan& plan) {
     const std::string fileName = exportQuestion();
     if (!fileName.empty()) {
         list.exportList(fileName);
+    }
+}
+
+//builds the plan; on PlanImpossibleError prints why and returns no plan
+std::optional<MealPlan> makePlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog,
+                                 std::vector<std::unique_ptr<PlanConstraint>> constraints) {
+    try {
+        return MealPlan{weeklyBudget, caloriesPerDay, catalog, std::move(constraints)};
+    } catch (const PlanImpossibleError& e) {
+        std::cout << e.what() << std::endl;
+        return std::nullopt;   // "no plan"
     }
 }
 
@@ -256,26 +268,26 @@ int main() {
                     continue;
                 }
 
-                const MealPlan newPlan{weeklyBudget, caloriesPerDay, catalog, constraintsQuestion()};
-                printSeparator();
-                std::cout << newPlan;
-                if (!newPlan.weekCompleted()) {
+                const std::optional<MealPlan> newPlan = makePlan(weeklyBudget, caloriesPerDay, catalog, constraintsQuestion());
+                if (!newPlan) {
                     printSeparator();
                     continue;
                 }
+                printSeparator();
+                std::cout << *newPlan;
 
                 const std::streamsize oldPrecision = std::cout.precision();
                 std::cout << std::fixed << std::setprecision(2);
-                std::cout << "Average kcal per day: " << newPlan.averageKcalPerDay()
+                std::cout << "Average kcal per day: " << newPlan->averageKcalPerDay()
                         << " kcal (target: " << caloriesPerDay << " kcal)\n";
-                std::cout << "Week nutrition total:\n" << newPlan.weekNutritionTotal() << '\n';
-                std::cout << "Budget left: " << newPlan.budgetLeft() << " lei\n";
-                std::cout << "Cheapest day: Day " << newPlan.cheapestDay() << '\n';
-                std::cout << "Most expensive day: Day " << newPlan.mostExpensiveDay() << '\n';
+                std::cout << "Week nutrition total:\n" << newPlan->weekNutritionTotal() << '\n';
+                std::cout << "Budget left: " << newPlan->budgetLeft() << " lei\n";
+                std::cout << "Cheapest day: Day " << newPlan->cheapestDay() << '\n';
+                std::cout << "Most expensive day: Day " << newPlan->mostExpensiveDay() << '\n';
                 std::cout << std::defaultfloat;
                 std::cout.precision(oldPrecision);
                 printSeparator();
-                shoppingListQuestion(newPlan);
+                shoppingListQuestion(*newPlan);
 
                 std::cout << "Scale the servings? (y/n): ";
                 char answer = 'n';
@@ -291,19 +303,19 @@ int main() {
                         std::cout << "The servings must be a positive number." << std::endl;
                         continue;
                     }
-                    const MealPlan scaledPlan = newPlan.scaled(servings);
+                    const MealPlan scaledPlan = newPlan->scaled(servings);
                     printSeparator();
                     std::cout << scaledPlan;
                     printSeparator();
                     shoppingListQuestion(scaledPlan);
                     const std::string fileName = exportQuestion();
                     if (!fileName.empty()) {
-                        newPlan.exportPlanAndScaled(fileName, scaledPlan);
+                        newPlan->exportPlanAndScaled(fileName, scaledPlan);
                     }
                 } else {
                     const std::string fileName = exportQuestion();
                     if (!fileName.empty()) {
-                        newPlan.exportPlan(fileName);
+                        newPlan->exportPlan(fileName);
                     }
                 }
             } else if (choice == 's') {
@@ -331,7 +343,7 @@ int main() {
                         namePicked = n;
                         ingredientPicked = i;
                         break;
-                    } catch (const std::invalid_argument& e) {
+                    } catch (const InputError& e) {
                         std::cout << e.what() << '\n';
                     }
                 }
