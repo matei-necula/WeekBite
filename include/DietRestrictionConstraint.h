@@ -27,6 +27,10 @@ class DietRestrictionConstraint : public PlanConstraint {
 public:
     explicit DietRestrictionConstraint(Diet diet);
 
+    // true when the recipe fits this diet. Only diet rules have it: they look at the recipe alone,
+    // the other rules also need the days already chosen. MealPlan reaches it through dynamic_cast.
+    bool allows(const Recipe& recipe) const;
+
     std::unique_ptr<PlanConstraint> clone() const override;
 };
 

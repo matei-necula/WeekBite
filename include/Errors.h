@@ -44,7 +44,7 @@ public:
     explicit EmptyCategoryError(const std::string& detail);
 };
 
-// the greedy could not fill all 7 days; reason says why (round 130)
+// the greedy could not fill all 7 days; reason says why
 class PlanImpossibleError : public WeekBiteError {
 public:
     explicit PlanImpossibleError(const std::string& reason);

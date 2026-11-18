@@ -890,7 +890,7 @@ namespace {
         assert(allCriteria == "cni");
         assert(repeated == "-n-");
         assert(misspelled == "throws");
-        assert(withSpace == "throws" && "no spaces allowed (round 64)");
+        assert(withSpace == "throws" && "no spaces allowed");
         assert(empty == "throws");
         assert(onlyComma == "throws");
     }
@@ -1632,7 +1632,182 @@ namespace {
         std::vector<std::unique_ptr<PlanConstraint>> vegan;
         vegan.push_back(std::make_unique<DietRestrictionConstraint>(Diet::vegan));
         const std::string veganFailure = planFailure(70, 2000, catalog, std::move(vegan));
-        assert(veganFailure == restrictionsReason);
+        assert(veganFailure == restrictionsReason + ": only 0 breakfast recipes fit your diets");
+    }
+
+    // one recipe of the diet-shortage catalogs: vegan = its ingredient is tagged vegan, gluten = it contains gluten
+    struct DietMeal {
+        std::string name;
+        std::string category;
+        double kcal = 0;
+        int minutes = 10;
+        bool vegan = false;
+        bool gluten = false;
+    };
+
+    // adds `count` recipes of one category (kcal like weekRows, 1 leu each): "<prefix>1" .. "<prefix><count>"
+    void addMeals(std::vector<DietMeal>& meals, const std::string& prefix, const std::string& category, int count,
+                  bool vegan, bool gluten, int minutes = 10) {
+        const double base = category == "breakfast" ? 400 : category == "lunch" ? 690 : 450;
+        for (int i = 1; i <= count; i++) {
+            meals.push_back({prefix + std::to_string(i), category, base + 10 * i, minutes, vegan, gluten});
+        }
+    }
+
+    Recipes dietCatalogOf(const std::vector<DietMeal>& meals) {
+        std::map<std::string, IngredientInfo> info;
+        std::vector<RecipeRow> recipeRows;
+        std::map<std::string, std::vector<IngredientRow>> ingredientsByRecipe;
+        for (const DietMeal& meal : meals) {
+            const std::vector<std::string> suitableFor = meal.vegan ? std::vector<std::string>{"vegan"}
+                                                                    : std::vector<std::string>{};
+            const std::vector<std::string> contains = meal.gluten ? std::vector<std::string>{"gluten"}
+                                                                  : std::vector<std::string>{};
+            info[meal.name + "_ing"] = {1, suitableFor, contains};
+            recipeRows.emplace_back(meal.name, meal.category, Nutrition{meal.kcal, 0, 0, 0, 0}, meal.minutes);
+            ingredientsByRecipe[meal.name] = {{meal.name + "_ing", 1, "pieces"}};
+        }
+        return Recipes{info, recipeRows, ingredientsByRecipe};
+    }
+
+    std::vector<std::unique_ptr<PlanConstraint>> dietRules(const std::vector<Diet>& diets) {
+        std::vector<std::unique_ptr<PlanConstraint>> rules;
+        for (const Diet diet : diets) {
+            rules.push_back(std::make_unique<DietRestrictionConstraint>(diet));
+        }
+        return rules;
+    }
+
+    // the message the diet rules add after "too few recipes" (one case per call, 70 lei a week)
+    void testDietShortageMessage() {
+        const std::string prefix = restrictionsReason + ": ";
+
+        // two diets that are fine alone but not together: 8 breakfasts are vegan, 8 are gluten-free, only 6 are both
+        // (a count per diet would say 8; the message must count the recipes that ALL the diets allow)
+        std::vector<DietMeal> both;
+        addMeals(both, "bothOk", "breakfast", 6, true, false);
+        addMeals(both, "veganGluten", "breakfast", 2, true, true);
+        addMeals(both, "plainOnly", "breakfast", 2, false, false);
+        addMeals(both, "l", "lunch", 7, true, false);
+        addMeals(both, "d", "dinner", 7, true, false);
+        const Recipes bothCatalog = dietCatalogOf(both);
+        assert(planFailure(70, 2000, bothCatalog).empty());
+        assert(planFailure(70, 2000, bothCatalog, dietRules({Diet::vegan})).empty());
+        assert(planFailure(70, 2000, bothCatalog, dietRules({Diet::glutenFree})).empty());
+        const std::string together = planFailure(70, 2000, bothCatalog, dietRules({Diet::vegan, Diet::glutenFree}));
+        assert(together == prefix + "only 6 breakfast recipes fit your diets");
+        // the order of the rules changes nothing
+        const std::string reversed = planFailure(70, 2000, bothCatalog, dietRules({Diet::glutenFree, Diet::vegan}));
+        assert(reversed == together);
+
+        // breakfasts are fine, lunches are short: the lunch is named, with its own count
+        std::vector<DietMeal> fewLunches;
+        addMeals(fewLunches, "b", "breakfast", 7, true, false);
+        addMeals(fewLunches, "l", "lunch", 5, true, false);
+        addMeals(fewLunches, "meatyLunch", "lunch", 3, false, false);
+        addMeals(fewLunches, "d", "dinner", 7, true, false);
+        const Recipes lunchCatalog = dietCatalogOf(fewLunches);
+        assert(planFailure(70, 2000, lunchCatalog).empty());
+        assert(planFailure(70, 2000, lunchCatalog, dietRules({Diet::vegan})) ==
+               prefix + "only 5 lunch recipes fit your diets");
+
+        // only the dinners are short: the dinner is named
+        std::vector<DietMeal> fewDinners;
+        addMeals(fewDinners, "b", "breakfast", 7, true, false);
+        addMeals(fewDinners, "l", "lunch", 7, true, false);
+        addMeals(fewDinners, "d", "dinner", 2, true, false);
+        addMeals(fewDinners, "meatyDinner", "dinner", 6, false, false);
+        const Recipes dinnerCatalog = dietCatalogOf(fewDinners);
+        assert(planFailure(70, 2000, dinnerCatalog).empty());
+        assert(planFailure(70, 2000, dinnerCatalog, dietRules({Diet::vegan})) ==
+               prefix + "only 2 dinner recipes fit your diets");
+
+        // several meals short: the first one in the order breakfast, lunch, dinner is the one reported
+        std::vector<DietMeal> manyShort;
+        addMeals(manyShort, "b", "breakfast", 1, true, false);
+        addMeals(manyShort, "meatyB", "breakfast", 7, false, false);
+        addMeals(manyShort, "l", "lunch", 3, true, false);
+        addMeals(manyShort, "meatyL", "lunch", 7, false, false);
+        addMeals(manyShort, "d", "dinner", 4, true, false);
+        addMeals(manyShort, "meatyD", "dinner", 7, false, false);
+        const Recipes manyCatalog = dietCatalogOf(manyShort);
+        assert(planFailure(70, 2000, manyCatalog, dietRules({Diet::vegan})) ==
+               prefix + "only 1 breakfast recipes fit your diets");
+        // without the breakfast problem, the lunch comes before the dinner
+        std::vector<DietMeal> lunchAndDinner;
+        addMeals(lunchAndDinner, "b", "breakfast", 7, true, false);
+        addMeals(lunchAndDinner, "l", "lunch", 3, true, false);
+        addMeals(lunchAndDinner, "meatyL", "lunch", 7, false, false);
+        addMeals(lunchAndDinner, "d", "dinner", 4, true, false);
+        addMeals(lunchAndDinner, "meatyD", "dinner", 7, false, false);
+        assert(planFailure(70, 2000, dietCatalogOf(lunchAndDinner), dietRules({Diet::vegan})) ==
+               prefix + "only 3 lunch recipes fit your diets");
+
+        // boundary: exactly 7 fitting recipes in every meal are enough, so the diet is not named.
+        // The plan still fails, because one of the 7 lunches takes 90 minutes and the other rule rejects it
+        // (the cast skips the cooking-time rule: only the diet is counted)
+        std::vector<DietMeal> seven;
+        addMeals(seven, "b", "breakfast", 7, true, false);
+        addMeals(seven, "l", "lunch", 6, true, false);
+        addMeals(seven, "slow", "lunch", 1, true, false, 90);
+        addMeals(seven, "d", "dinner", 7, true, false);
+        const Recipes sevenCatalog = dietCatalogOf(seven);
+        assert(planFailure(70, 2000, sevenCatalog).empty());
+        assert(planFailure(70, 2000, sevenCatalog, dietRules({Diet::vegan})).empty());
+        std::vector<std::unique_ptr<PlanConstraint>> veganAndFast = dietRules({Diet::vegan});
+        veganAndFast.push_back(std::make_unique<WeekdayPrepTimeConstraint>(30, false));
+        const std::string sevenFit = planFailure(70, 2000, sevenCatalog, std::move(veganAndFast));
+        assert(sevenFit == restrictionsReason);
+
+        // the same catalog with one lunch that is not vegan: 6 fit, which is one too few
+        std::vector<DietMeal> six = seven;
+        for (DietMeal& meal : six) {
+            if (meal.name == "slow1") {
+                meal.vegan = false;
+            }
+        }
+        std::vector<std::unique_ptr<PlanConstraint>> veganAndFastAgain = dietRules({Diet::vegan});
+        veganAndFastAgain.push_back(std::make_unique<WeekdayPrepTimeConstraint>(30, false));
+        const std::string sixFit = planFailure(70, 2000, dietCatalogOf(six), std::move(veganAndFastAgain));
+        assert(sixFit == prefix + "only 6 lunch recipes fit your diets");
+
+        // only rules that are not diets: no diet to count, so just the plain reason (no ':' at all)
+        std::vector<std::unique_ptr<PlanConstraint>> onlyFast;
+        onlyFast.push_back(std::make_unique<WeekdayPrepTimeConstraint>(30, false));
+        onlyFast.push_back(std::make_unique<MealBalanceConstraint>());
+        const std::string noDiets = planFailure(70, 2000, sevenCatalog, std::move(onlyFast));
+        assert(noDiets == restrictionsReason);
+        assert(noDiets.find(':', restrictionsReason.find(':') + 1) == std::string::npos);
+
+        // the budget is still blamed first: 7 lei fail even without the rules, so no diet text
+        const std::string poor = planFailure(7, 2000, bothCatalog, dietRules({Diet::vegan, Diet::glutenFree}));
+        assert(poor == budgetReason);
+    }
+
+    // allows() is the same question isValid asks through a PlanConstraint pointer
+    void testDietAllowsMatchesIsValid() {
+        const Recipe tofuToast = taggedRecipe("tofu_toast", {"tofu", "bread"});
+        const Recipe cheeseSalad = taggedRecipe("cheese_salad", {"cheese", "tofu"});
+        const Recipe blt = taggedRecipe("blt", {"bacon", "bread"});
+        const Recipe steak = taggedRecipe("steak", {"beef"});
+        const Diet allDiets[] = {Diet::vegan, Diet::vegetarian, Diet::glutenFree,
+                                 Diet::lactoseFree, Diet::noPork, Diet::noRedMeat};
+        for (const Diet diet : allDiets) {
+            const DietRestrictionConstraint rule{diet};
+            const PlanConstraint& base = rule;
+            for (const Recipe* recipe : {&tofuToast, &cheeseSalad, &blt, &steak}) {
+                const bool direct = rule.allows(*recipe);
+                const bool viaBase = base.isValid({}, {}, *recipe);
+                assert(direct == viaBase);
+            }
+        }
+        // a few answers spelled out
+        const DietRestrictionConstraint vegan{Diet::vegan};
+        const DietRestrictionConstraint noPork{Diet::noPork};
+        assert(vegan.allows(tofuToast));
+        assert(!vegan.allows(cheeseSalad));
+        assert(noPork.allows(steak));
+        assert(!noPork.allows(blt));
     }
 
     void testMealPlanCopyWithConstraints() {
@@ -1806,6 +1981,8 @@ int main() {
     testDietFromText();
     testDietRestrictionConstraint();
     testMealPlanWithDiet();
+    testDietShortageMessage();
+    testDietAllowsMatchesIsValid();
     testConstraintOutput();
     testMealPlanPrintsRules();
 

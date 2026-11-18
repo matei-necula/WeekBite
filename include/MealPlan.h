@@ -26,6 +26,10 @@ class MealPlan {
 
     bool passesConstraints(const std::vector<Recipe>& todayRecipesSoFar, const Recipe& candidate) const;
 
+    // which meal the diet rules leave short of 7 different recipes, e.g. "only 3 breakfast recipes fit your diets";
+    // "" when there are no diet rules or every meal has enough
+    std::string dietShortage(const Recipes& catalog) const;
+
 public:
     MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog,
              std::vector<std::unique_ptr<PlanConstraint>> constraints = {});

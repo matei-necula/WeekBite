@@ -12,6 +12,7 @@
 #include <utility>
 #include "fileHelper.h"
 #include "PlanConstraint.h"
+#include "DietRestrictionConstraint.h"
 
 MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& catalog,
                    std::vector<std::unique_ptr<PlanConstraint>> constraints)
@@ -21,7 +22,12 @@ MealPlan::MealPlan(double weeklyBudget, double caloriesPerDay, const Recipes& ca
         return;
     days.clear();
     if (!this->constraints.empty() && processPlan(catalog, false)) {
-        throw PlanImpossibleError("The restrictions leave too few recipes");
+        std::string shortage = dietShortage(catalog);
+        if (shortage.empty()) {
+            throw PlanImpossibleError("The restrictions leave too few recipes");
+        } else {
+            throw PlanImpossibleError("The restrictions leave too few recipes: " + shortage);
+        }
     } else {
         throw PlanImpossibleError("The budget is too small for 7 days");
     }
@@ -212,6 +218,34 @@ void swap(MealPlan& first, MealPlan& second) noexcept {
     swap(first.weeklyBudget, second.weeklyBudget);
     swap(first.caloriesPerDay, second.caloriesPerDay);
     swap(first.constraints, second.constraints);
+}
+
+std::string MealPlan::dietShortage(const Recipes& catalog) const {
+    // 1) keep only the diet rules (the only ones that can be checked on the catalog alone)
+    std::vector<const DietRestrictionConstraint*> diets;
+    for (const auto& constraint : constraints) {
+        if (const auto* diet = dynamic_cast<const DietRestrictionConstraint*>(constraint.get())) { //dynamic cast in "if" because it checks at run time what object the pointer really points to -> nullptr if it isnt a dietrestrictionconstraint
+            diets.push_back(diet);
+        }
+    }
+    if (diets.empty())
+        return "";
+
+    // 2) for every meal, count the recipes that ALL the diets allow
+    for (const Category category : {Category::breakfast, Category::lunch, Category::dinner}) {
+        int fitting = 0;
+        for (const Recipe& recipe : catalog.getRecipesFromCategory(category)) {
+            if (std::all_of(diets.begin(), diets.end(), [&](const DietRestrictionConstraint* diet) {
+                return diet->allows(recipe);
+            })) {
+                fitting++;
+            }
+        }
+        if (fitting < 7) {
+            return "only " + std::to_string(fitting) + " " + categoryToText(category) + " recipes fit your diets";
+        }
+    }
+    return "";
 }
 
 bool MealPlan::passesConstraints(const std::vector<Recipe>& todayRecipesSoFar, const Recipe& candidate) const {

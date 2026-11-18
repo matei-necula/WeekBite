@@ -49,6 +49,10 @@ DietRestrictionConstraint::DietRestrictionConstraint(Diet diet)
 bool DietRestrictionConstraint::isValid_(const std::vector<DayMeals>& /*previousDays*/,
                                          const std::vector<Recipe>& /*todayRecipesSoFar*/,
                                          const Recipe& wantToAdd) const {
+    return allows(wantToAdd);
+}
+
+bool DietRestrictionConstraint::allows(const Recipe& wantToAdd) const {
     switch (diet) {
         case Diet::vegan:
             return wantToAdd.allIngredientsSuitableFor("vegan");
