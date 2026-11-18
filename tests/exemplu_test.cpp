@@ -1548,20 +1548,20 @@ namespace {
     }
 
     void testDietFromText() {
-        assert(dietFromText("vegan") == Diet::vegan);
-        assert(dietFromText("vegetarian") == Diet::vegetarian);
-        assert(dietFromText("glutenfree") == Diet::glutenFree);
-        assert(dietFromText("lactosefree") == Diet::lactoseFree);
-        assert(dietFromText("nopork") == Diet::noPork);
-        assert(dietFromText("noredmeat") == Diet::noRedMeat);
+        assert(DietRestrictionConstraint::fromText("vegan") == Diet::vegan);
+        assert(DietRestrictionConstraint::fromText("vegetarian") == Diet::vegetarian);
+        assert(DietRestrictionConstraint::fromText("glutenfree") == Diet::glutenFree);
+        assert(DietRestrictionConstraint::fromText("lactosefree") == Diet::lactoseFree);
+        assert(DietRestrictionConstraint::fromText("nopork") == Diet::noPork);
+        assert(DietRestrictionConstraint::fromText("noredmeat") == Diet::noRedMeat);
         // any case
-        assert(dietFromText("Vegan") == Diet::vegan);
-        assert(dietFromText("NoRedMeat") == Diet::noRedMeat);
+        assert(DietRestrictionConstraint::fromText("Vegan") == Diet::vegan);
+        assert(DietRestrictionConstraint::fromText("NoRedMeat") == Diet::noRedMeat);
         const std::string unknown[] = {"vegn", "", "no pork", "glutenfree "};
         for (const std::string& text : unknown) {
             bool threw = false;
             try {
-                (void) dietFromText(text);
+                (void) DietRestrictionConstraint::fromText(text);
             } catch (const InputError&) {
                 threw = true;
             }
@@ -1885,13 +1885,13 @@ namespace {
                "Daily nutrition: minimum: calories 1 kcal, protein 2 g, carbohydrates 3 g, fats 4 g, sugar 5 g; "
                "maximum: none");
 
-        // every diet has its own text (dietToText) and the rule uses it
+        // every diet has its own text (DietRestrictionConstraint::toText) and the rule uses it
         const std::pair<Diet, std::string> diets[] = {
             {Diet::vegan, "vegan"}, {Diet::vegetarian, "vegetarian"}, {Diet::glutenFree, "gluten-free"},
             {Diet::lactoseFree, "lactose-free"}, {Diet::noPork, "no pork"}, {Diet::noRedMeat, "no red meat"},
         };
         for (const auto& [diet, text] : diets) {
-            assert(dietToText(diet) == text);
+            assert(DietRestrictionConstraint::toText(diet) == text);
             const std::unique_ptr<PlanConstraint> rule = std::make_unique<DietRestrictionConstraint>(diet);
             assert(printed(*rule) == "Diet: " + text);
         }

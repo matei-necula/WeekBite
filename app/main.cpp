@@ -108,7 +108,7 @@ std::vector<std::unique_ptr<PlanConstraint>> constraintsQuestion() {
             try {
                 std::vector<std::unique_ptr<PlanConstraint>> diets;
                 for (const std::string& piece : splitText(line, ',')) {
-                    diets.push_back(std::make_unique<DietRestrictionConstraint>(dietFromText(piece)));
+                    diets.push_back(std::make_unique<DietRestrictionConstraint>(DietRestrictionConstraint::fromText(piece)));
                 }
                 for (std::unique_ptr<PlanConstraint>& diet : diets) {
                     constraints.push_back(std::move(diet));

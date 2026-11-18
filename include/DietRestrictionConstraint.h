@@ -12,10 +12,6 @@
 // one restriction the user can pick; vegan / vegetarian need every ingredient to be suitable,
 // the others reject a recipe if any ingredient contains the tag
 enum class Diet { vegan, vegetarian, glutenFree, lactoseFree, noPork, noRedMeat };
-// throws InputError for any other text
-Diet dietFromText(const std::string& text);
-// the opposite of dietFromText, for printing (Diet::glutenFree -> "gluten free")
-std::string dietToText(Diet diet);
 
 class DietRestrictionConstraint : public PlanConstraint {
     Diet diet;
@@ -26,6 +22,13 @@ class DietRestrictionConstraint : public PlanConstraint {
 
 public:
     explicit DietRestrictionConstraint(Diet diet);
+
+    // static: they belong to the class, not to one rule. fromText is needed BEFORE any rule exists
+    // (main turns the typed text into a Diet, then builds the rule), so there is no object to call it on.
+    // "vegan" -> Diet::vegan (any case); throws InputError for any other text
+    static Diet fromText(const std::string& text);
+    // the opposite of fromText, for printing (Diet::glutenFree -> "gluten-free")
+    static std::string toText(Diet diet);
 
     // true when the recipe fits this diet. Only diet rules have it: they look at the recipe alone,
     // the other rules also need the days already chosen. MealPlan reaches it through dynamic_cast.

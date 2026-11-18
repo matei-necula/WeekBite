@@ -7,7 +7,8 @@
 #include <stdexcept>
 #include "textHelper.h"
 
-Diet dietFromText(const std::string& text) {
+// "static" is written only in the header, not again here
+Diet DietRestrictionConstraint::fromText(const std::string& text) {
     const std::string lower = toLowercase(text);
      if (lower == "vegan")
         return Diet::vegan;
@@ -24,7 +25,7 @@ Diet dietFromText(const std::string& text) {
      throw InputError("Unknown diet: " + text);
 }
 
-std::string dietToText(Diet diet) {
+std::string DietRestrictionConstraint::toText(Diet diet) {
     switch (diet) {
         case Diet::vegan:
             return "vegan";
@@ -71,7 +72,7 @@ bool DietRestrictionConstraint::allows(const Recipe& wantToAdd) const {
 }
 
 void DietRestrictionConstraint::print_(std::ostream& os) const {
-    os << dietToText(diet);
+    os << toText(diet);
 }
 
 std::unique_ptr<PlanConstraint> DietRestrictionConstraint::clone() const {
